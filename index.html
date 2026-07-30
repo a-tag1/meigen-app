@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>言葉のお守り箱 - Dark Edition</title>
+  <style>
+    :root {
+      --bg-color: #0b0c10;          /* 漆黒に近いダークバック */
+      --card-bg: #1f2833;           /* 控えめな深みのあるグレー */
+      --text-main: #edf5e1;         /* 視認性の高いオフホワイト */
+      --text-sub: #c5c6c7;          /* シックなシルバーグレー */
+      --accent-color: #66fcf1;      /* 鮮やかなネオンターコイズ（差し色） */
+      --border-color: #2c353f;      /* 質感のあるダークボーダー */
+      --danger-color: #ff4d4d;      /* 落ち着いたレッド */
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+
+    /* メインコンテナ */
+    .app-container { width: 100%; max-width: 480px; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; padding: 24px; position: relative; }
+
+    /* ヘッダー（ミニマルな設定アイコン） */
+    header { display: flex; justify-content: flex-end; padding: 10px 0; }
+    .icon-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-sub); padding: 8px; border-radius: 50%; transition: color 0.2s, transform 0.2s; }
+    .icon-btn:hover { color: var(--accent-color); transform: rotate(30deg); }
+
+    /* 名言カード表示エリア：枠線を無くして空間を活かしたかっこいいスタイル */
+    .card-area { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: left; cursor: pointer; user-select: none; padding: 20px 0; }
+    .quote-card { background: rgba(255, 255, 255, 0.02); width: 100%; padding: 48px 28px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 28px; transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease; position: relative; }
+    .quote-card::before { content: "“"; position: absolute; top: 12px; left: 20px; font-size: 4rem; color: rgba(255, 255, 255, 0.05); font-family: Georgia, serif; line-height: 1; }
+    .quote-card:active { transform: scale(0.98); }
+    .quote-text { font-size: 1.35rem; font-weight: 300; line-height: 1.7; letter-spacing: 0.04em; color: var(--text-main); text-shadow: 0 0 20px rgba(255,255,255,0.05); }
+    .quote-author { font-size: 0.85rem; color: var(--accent-color); text-align: right; letter-spacing: 0.1em; text-transform: uppercase; }
+    .tap-hint { font-size: 0.7rem; color: var(--text-sub); margin-top: 24px; opacity: 0.4; letter-spacing: 0.15em; text-transform: uppercase; }
+
+    /* モーダル：ダークグラスモーフィズム */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); justify-content: center; align-items: flex-end; z-index: 100; opacity: 0; transition: opacity 0.25s ease; }
+    .modal.show { display: flex; opacity: 1; }
+    .modal-content { background: var(--bg-color); width: 100%; max-width: 480px; max-height: 85vh; border-radius: 24px 24px 0 0; border-top: 1px solid var(--border-color); padding: 28px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; box-shadow: 0 -10px 40px rgba(0,0,0,0.8); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+    .modal.show .modal-content { transform: translateY(0); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; }
+    .modal-title { font-size: 1rem; font-weight: 600; letter-spacing: 0.08em; color: var(--text-main); }
+
+    /* メニューリスト */
+    .menu-list { list-style: none; display: flex; flex-direction: column; }
+    .menu-item { padding: 18px 0; border-bottom: 1px solid var(--border-color); cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.95rem; color: var(--text-sub); transition: color 0.2s; }
+    .menu-item:hover, .menu-item:active { color: var(--accent-color); }
+    .menu-item:last-child { border-bottom: none; }
+
+    /* フォーム・ボタン */
+    .form-group { display: flex; flex-direction: column; gap: 10px; }
+    label { font-size: 0.75rem; color: var(--text-sub); letter-spacing: 0.1em; text-transform: uppercase; }
+    textarea, input { width: 100%; padding: 14px; background: #15181e; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.95rem; color: var(--text-main); outline: none; transition: border-color 0.2s; }
+    textarea:focus, input:focus { border-color: var(--accent-color); }
+    textarea { height: 110px; resize: none; }
+    
+    .primary-btn { background: var(--accent-color); color: #000; border: none; padding: 16px; border-radius: 10px; font-size: 0.9rem; cursor: pointer; font-weight: 700; width: 100%; letter-spacing: 0.1em; text-transform: uppercase; transition: opacity 0.2s; }
+    .primary-btn:active { opacity: 0.8; }
+    .secondary-btn { background: transparent; color: var(--text-main); border: 1px solid var(--border-color); padding: 14px; border-radius: 10px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: border-color 0.2s; }
+    .secondary-btn:active { border-color: var(--accent-color); }
+
+    /* 一覧・データ管理 */
+    .quote-list { display: flex; flex-direction: column; gap: 12px; }
+    .list-item { background: #15181e; padding: 16px; border-radius: 10px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .list-item-text { font-size: 0.9rem; line-height: 1.5; color: var(--text-main); }
+    .list-item-author { font-size: 0.75rem; color: var(--accent-color); margin-top: 6px; }
+    .delete-btn { background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 0.8rem; padding: 4px; opacity: 0.7; }
+    .delete-btn:hover { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <header>
+      <button class="icon-btn" id="openMenuBtn" aria-label="設定">⚙︎</button>
+    </header>
+
+    <main class="card-area" id="cardArea">
+      <div class="quote-card" id="quoteCard">
+        <div class="quote-text" id="quoteText">画面をタップして、言葉を呼び出しましょう。</div>
+        <div class="quote-author" id="quoteAuthor"></div>
+      </div>
+      <div class="tap-hint">Tap to next</div>
+    </main>
+
+    <div></div>
+  </div>
+
+  <!-- ① メニューモーダル -->
+  <div class="modal" id="menuModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">MENU</span>
+        <button class="icon-btn" onclick="closeModal('menuModal')">✕</button>
+      </div>
+      <ul class="menu-list">
+        <li class="menu-item" onclick="switchModal('menuModal', 'addModal')">名言を追加 <span>→</span></li>
+        <li class="menu-item" onclick="switchModal('menuModal', 'listModal')">一覧を見る <span>→</span></li>
+        <li class="menu-item" onclick="switchModal('menuModal', 'backupModal')">バックアップ / 復元 <span>→</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ② 名言追加モーダル -->
+  <div class="modal" id="addModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">ADD QUOTE</span>
+        <button class="icon-btn" onclick="closeModal('addModal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label>言葉・本文</label>
+        <textarea id="inputQuote" placeholder="心に残った言葉を入力..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>発言者・出典</label>
+        <input type="text" id="inputAuthor" placeholder="例: アインシュタイン">
+      </div>
+      <button class="primary-btn" onclick="addQuote()">保存する</button>
+    </div>
+  </div>
+
+  <!-- ③ 一覧画面モーダル -->
+  <div class="modal" id="listModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">ALL QUOTES</span>
+        <button class="icon-btn" onclick="closeModal('listModal')">✕</button>
+      </div>
+      <div class="quote-list" id="quoteListContainer"></div>
+    </div>
+  </div>
+
+  <!-- ④ 管理（バックアップ / 復元）モーダル -->
+  <div class="modal" id="backupModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">DATA MANAGEMENT</span>
+        <button class="icon-btn" onclick="closeModal('backupModal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label>バックアップ</label>
+        <button class="secondary-btn" onclick="exportData()">JSONファイルを書き出す</button>
+      </div>
+      <hr style="border: none; border-top: 1px solid var(--border-color);">
+      <div class="form-group">
+        <label>復元</label>
+        <input type="file" id="importFile" accept=".json">
+        <button class="secondary-btn" onclick="importData()">ファイルから読み込む</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'my_quotes_data';
+
+    function getQuotes() {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [
+        { id: 1, text: "準備を怠る者は、失敗を準備しているのだ。", author: "ベンジャミン・フランクリン" },
+        { id: 2, text: "小さなことを重ねることが、とんでもないところへ行く唯一の道。", author: "イチロー" }
+      ];
+    }
+
+    function saveQuotes(quotes) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(quotes));
+    }
+
+    function displayRandomQuote() {
+      const quotes = getQuotes();
+      if (quotes.length === 0) {
+        document.getElementById('quoteText').innerText = "言葉が登録されていません。「⚙︎」メニューから追加してください。";
+        document.getElementById('quoteAuthor').innerText = "";
+        return;
+      }
+      const randomIndex = Math.floor(Math.random() * quotes.length);
+      const q = quotes[randomIndex];
+      
+      const card = document.getElementById('quoteCard');
+      card.style.opacity = 0;
+      setTimeout(() => {
+        document.getElementById('quoteText').innerText = q.text;
+        document.getElementById('quoteAuthor').innerText = q.author ? `— ${q.author}` : '';
+        card.style.opacity = 1;
+      }, 150);
+    }
+
+    document.getElementById('cardArea').addEventListener('click', displayRandomQuote);
+    document.getElementById('openMenuBtn').addEventListener('click', () => openModal('menuModal'));
+
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      modal.classList.add('show');
+      if (id === 'listModal') renderList();
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('show');
+    }
+
+    function switchModal(fromId, toId) {
+      closeModal(fromId);
+      setTimeout(() => openModal(toId), 200);
+    }
+
+    function addQuote() {
+      const text = document.getElementById('inputQuote').value.trim();
+      const author = document.getElementById('inputAuthor').value.trim();
+      if (!text) { alert('言葉を入力してください'); return; }
+
+      const quotes = getQuotes();
+      quotes.push({ id: Date.now(), text, author });
+      saveQuotes(quotes);
+
+      document.getElementById('inputQuote').value = '';
+      document.getElementById('inputAuthor').value = '';
+      closeModal('addModal');
+      displayRandomQuote();
+    }
+
+    function renderList() {
+      const container = document.getElementById('quoteListContainer');
+      const quotes = getQuotes();
+      container.innerHTML = '';
+
+      if (quotes.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-sub); text-align:center;">登録された言葉はありません</p>';
+        return;
+      }
+
+      quotes.forEach(q => {
+        const item = document.createElement('div');
+        item.className = 'list-item';
+        item.innerHTML = `
+          <div>
+            <div class="list-item-text">${escapeHtml(q.text)}</div>
+            ${q.author ? `<div class="list-item-author">— ${escapeHtml(q.author)}</div>` : ''}
+          </div>
+          <button class="delete-btn" onclick="deleteQuote(${q.id})">削除</button>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function deleteQuote(id) {
+      if (!confirm('本当に削除しますか？')) return;
+      let quotes = getQuotes();
+      quotes = quotes.filter(q => q.id !== id);
+      saveQuotes(quotes);
+      renderList();
+      displayRandomQuote();
+    }
+
+    function exportData() {
+      const quotes = getQuotes();
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(quotes, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `meigen_backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importData() {
+      const fileInput = document.getElementById('importFile');
+      if (!fileInput.files.length) { alert('JSONファイルを選択してください'); return; }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const importedQuotes = JSON.parse(e.target.result);
+          if (!Array.isArray(importedQuotes)) throw new Error();
+          
+          if (confirm('既存のデータに上書き復元しますか？（キャンセルで追加登録）')) {
+            saveQuotes(importedQuotes);
+          } else {
+            const current = getQuotes();
+            saveQuotes([...current, ...importedQuotes]);
+          }
+          alert('データの復元が完了しました');
+          closeModal('backupModal');
+          displayRandomQuote();
+        } catch (err) {
+          alert('正しいバックアップファイル（JSON）を選択してください');
+        }
+      };
+      reader.readAsText(fileInput.files[0]);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    displayRandomQuote();
+  </script>
+</body>
+</html>
