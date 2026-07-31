@@ -68,6 +68,9 @@
     .list-item-author { font-size: 0.75rem; color: var(--accent-color); margin-top: 6px; }
     .delete-btn { background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 0.8rem; padding: 4px; opacity: 0.7; }
     .delete-btn:hover { opacity: 1; }
+    .edit-btn { background: none; border: none; color: var(--accent-color); cursor: pointer; font-size: 0.8rem; padding: 4px; opacity: 0.7; }
+    .edit-btn:hover { opacity: 1; }
+    .search-input { margin-bottom: 4px; }
   </style>
 </head>
 <body>
@@ -129,6 +132,7 @@
         <span class="modal-title">ALL QUOTES</span>
         <button class="icon-btn" onclick="closeModal('listModal')">✕</button>
       </div>
+      <input type="text" id="searchInput" class="search-input" placeholder="キーワードで検索..." oninput="renderList()">
       <div class="quote-list" id="quoteListContainer"></div>
     </div>
   </div>
@@ -153,8 +157,28 @@
     </div>
   </div>
 
+  <!-- ⑤ 名言編集モーダル -->
+  <div class="modal" id="editModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">EDIT QUOTE</span>
+        <button class="icon-btn" onclick="switchModal('editModal', 'listModal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label>言葉・本文</label>
+        <textarea id="editQuoteText" placeholder="心に残った言葉を入力..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>発言者・出典</label>
+        <input type="text" id="editQuoteAuthor" placeholder="例: アインシュタイン">
+      </div>
+      <button class="primary-btn" onclick="saveEdit()">更新する</button>
+    </div>
+  </div>
+
   <script>
     const STORAGE_KEY = 'my_quotes_data';
+    let editingId = null;
 
     function getQuotes() {
       return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [
@@ -192,7 +216,10 @@
     function openModal(id) {
       const modal = document.getElementById(id);
       modal.classList.add('show');
-      if (id === 'listModal') renderList();
+      if (id === 'listModal') {
+        document.getElementById('searchInput').value = '';
+        renderList();
+      }
     }
 
     function closeModal(id) {
@@ -221,11 +248,15 @@
 
     function renderList() {
       const container = document.getElementById('quoteListContainer');
-      const quotes = getQuotes();
+      const keyword = (document.getElementById('searchInput')?.value || '').toLowerCase();
+      const all = getQuotes();
+      const quotes = keyword
+        ? all.filter(q => q.text.toLowerCase().includes(keyword) || (q.author && q.author.toLowerCase().includes(keyword)))
+        : all;
       container.innerHTML = '';
 
       if (quotes.length === 0) {
-        container.innerHTML = '<p style="color: var(--text-sub); text-align:center;">登録された言葉はありません</p>';
+        container.innerHTML = `<p style="color: var(--text-sub); text-align:center;">${keyword ? '該当する言葉はありません' : '登録された言葉はありません'}</p>`;
         return;
       }
 
@@ -233,14 +264,41 @@
         const item = document.createElement('div');
         item.className = 'list-item';
         item.innerHTML = `
-          <div>
+          <div style="flex:1; min-width:0;">
             <div class="list-item-text">${escapeHtml(q.text)}</div>
             ${q.author ? `<div class="list-item-author">— ${escapeHtml(q.author)}</div>` : ''}
           </div>
-          <button class="delete-btn" onclick="deleteQuote(${q.id})">削除</button>
+          <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
+            <button class="edit-btn" onclick="editQuote(${q.id})">編集</button>
+            <button class="delete-btn" onclick="deleteQuote(${q.id})">削除</button>
+          </div>
         `;
         container.appendChild(item);
       });
+    }
+
+    function editQuote(id) {
+      const q = getQuotes().find(q => q.id === id);
+      if (!q) return;
+      editingId = id;
+      document.getElementById('editQuoteText').value = q.text;
+      document.getElementById('editQuoteAuthor').value = q.author || '';
+      switchModal('listModal', 'editModal');
+    }
+
+    function saveEdit() {
+      const text = document.getElementById('editQuoteText').value.trim();
+      const author = document.getElementById('editQuoteAuthor').value.trim();
+      if (!text) { alert('言葉を入力してください'); return; }
+      let quotes = getQuotes();
+      const idx = quotes.findIndex(q => q.id === editingId);
+      if (idx !== -1) {
+        quotes[idx] = { ...quotes[idx], text, author };
+        saveQuotes(quotes);
+      }
+      editingId = null;
+      displayRandomQuote();
+      switchModal('editModal', 'listModal');
     }
 
     function deleteQuote(id) {
