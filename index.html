@@ -109,6 +109,11 @@
     .edit-btn { background: none; border: none; color: var(--accent-color); cursor: pointer; font-size: 0.8rem; padding: 4px; opacity: 0.7; }
     .edit-btn:hover { opacity: 1; }
     .search-input { margin-bottom: 4px; }
+
+    /* 文字サイズ選択ボタングループ */
+    .size-selector { display: flex; gap: 8px; }
+    .size-btn { flex: 1; background: #15181e; color: var(--text-sub); border: 1px solid var(--border-color); padding: 12px 8px; border-radius: 10px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-align: center; }
+    .size-btn.active { background: var(--accent-color); color: #000; border-color: var(--accent-color); font-weight: 700; }
   </style>
 </head>
 <body>
@@ -139,6 +144,7 @@
       <ul class="menu-list">
         <li class="menu-item" onclick="switchModal('menuModal', 'addModal')">名言を追加 <span>→</span></li>
         <li class="menu-item" onclick="switchModal('menuModal', 'listModal')">一覧を見る <span>→</span></li>
+        <li class="menu-item" onclick="switchModal('menuModal', 'settingsModal')">表示設定 <span>→</span></li>
         <li class="menu-item" onclick="switchModal('menuModal', 'backupModal')">バックアップ / 復元 <span>→</span></li>
       </ul>
     </div>
@@ -195,7 +201,26 @@
     </div>
   </div>
 
-  <!-- ⑤ 名言編集モーダル -->
+  <!-- ⑤ 表示設定モーダル -->
+  <div class="modal" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">DISPLAY SETTINGS</span>
+        <button class="icon-btn" onclick="closeModal('settingsModal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label>文字サイズ</label>
+        <div class="size-selector">
+          <button class="size-btn" data-size="small" onclick="setFontSize('small')">小</button>
+          <button class="size-btn" data-size="medium" onclick="setFontSize('medium')">中</button>
+          <button class="size-btn" data-size="large" onclick="setFontSize('large')">大</button>
+          <button class="size-btn" data-size="xlarge" onclick="setFontSize('xlarge')">特大</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑥ 名言編集モーダル -->
   <div class="modal" id="editModal">
     <div class="modal-content">
       <div class="modal-header">
@@ -216,8 +241,23 @@
 
   <script>
     const STORAGE_KEY = 'my_quotes_data';
+    const FONT_SIZE_KEY = 'quote_font_size';
+    const FONT_SIZE_MAP = { small: '1rem', medium: '1.35rem', large: '1.7rem', xlarge: '2.1rem' };
     let editingId = null;
     let shuffleQueue = [];
+
+    function setFontSize(size) {
+      localStorage.setItem(FONT_SIZE_KEY, size);
+      document.getElementById('quoteText').style.fontSize = FONT_SIZE_MAP[size];
+      document.querySelectorAll('.size-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.size === size);
+      });
+    }
+
+    function applyFontSize() {
+      const size = localStorage.getItem(FONT_SIZE_KEY) || 'medium';
+      setFontSize(size);
+    }
 
     function shuffleArray(arr) {
       for (let i = arr.length - 1; i > 0; i--) {
@@ -411,6 +451,7 @@
     }
 
     displayRandomQuote();
+    applyFontSize();
   </script>
 </body>
 </html>
