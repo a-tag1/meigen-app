@@ -217,6 +217,15 @@
   <script>
     const STORAGE_KEY = 'my_quotes_data';
     let editingId = null;
+    let shuffleQueue = [];
+
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
 
     function getQuotes() {
       return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [
@@ -236,8 +245,20 @@
         document.getElementById('quoteAuthor').innerText = "";
         return;
       }
-      const randomIndex = Math.floor(Math.random() * quotes.length);
-      const q = quotes[randomIndex];
+
+      // キューが空になったら全件シャッフルして補充（1件のみなら再シャッフル不要）
+      if (shuffleQueue.length === 0) {
+        shuffleQueue = shuffleArray(quotes.map((_, i) => i));
+        // 直前に表示したものが先頭に来た場合は末尾へ移す
+        if (quotes.length > 1) {
+          const lastText = document.getElementById('quoteText').innerText;
+          if (quotes[shuffleQueue[0]]?.text === lastText) {
+            shuffleQueue.push(shuffleQueue.shift());
+          }
+        }
+      }
+
+      const q = quotes[shuffleQueue.shift()];
       
       const card = document.getElementById('quoteCard');
       card.style.opacity = 0;
