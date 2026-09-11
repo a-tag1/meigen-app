@@ -56,16 +56,8 @@
       gap: 28px; 
       transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease; 
       position: relative; 
-      max-height: 65vh;
-      overflow-y: auto;
+      overflow: visible;
       word-break: break-word;
-    }
-    .quote-card::-webkit-scrollbar {
-      width: 4px;
-    }
-    .quote-card::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 4px;
     }
     .quote-card::before { content: "“"; position: absolute; top: 12px; left: 20px; font-size: 4rem; color: rgba(255, 255, 255, 0.05); font-family: Georgia, serif; line-height: 1; }
     .quote-card:active { transform: scale(0.98); }
@@ -280,6 +272,8 @@
 
     function displayRandomQuote() {
       const quotes = getQuotes();
+      document.getElementById('quoteCard').scrollTop = 0;
+      window.scrollTo({ top: 0, behavior: 'auto' });
       if (quotes.length === 0) {
         document.getElementById('quoteText').innerText = "言葉が登録されていません。「⚙︎」メニューから追加してください。";
         document.getElementById('quoteAuthor').innerText = "";
