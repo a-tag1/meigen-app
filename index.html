@@ -65,6 +65,9 @@
     .quote-card:active { transform: scale(0.98); }
     .quote-text { min-height: 0; overflow-y: auto; font-size: 1.35rem; font-weight: 300; line-height: 1.7; letter-spacing: 0.04em; color: var(--text-main); text-shadow: 0 0 20px rgba(255,255,255,0.05); }
     .quote-author { flex-shrink: 0; font-size: 0.85rem; color: var(--accent-color); text-align: right; letter-spacing: 0.1em; text-transform: uppercase; }
+    .quote-card.is-vertical { height: min(65vh, 560px); flex-direction: row-reverse; align-items: stretch; }
+    .quote-card.is-vertical .quote-text { flex: 0 1 auto; width: fit-content; max-width: 100%; height: 100%; margin-left: auto; margin-right: auto; writing-mode: vertical-rl; text-orientation: mixed; overflow-x: auto; overflow-y: hidden; }
+    .quote-card.is-vertical .quote-author { writing-mode: vertical-rl; align-self: flex-end; text-align: left; }
     .tap-hint { font-size: 0.7rem; color: var(--text-sub); margin-top: 24px; opacity: 0.4; letter-spacing: 0.15em; text-transform: uppercase; }
 
     /* モーダル：ダークグラスモーフィズム */
@@ -203,6 +206,13 @@
         <button class="icon-btn" onclick="closeModal('settingsModal')">✕</button>
       </div>
       <div class="form-group">
+        <label>表示方向</label>
+        <div class="size-selector">
+          <button class="size-btn" data-orientation="horizontal" onclick="setOrientation('horizontal')">横書き</button>
+          <button class="size-btn" data-orientation="vertical" onclick="setOrientation('vertical')">縦書き</button>
+        </div>
+      </div>
+      <div class="form-group">
         <label>文字サイズ</label>
         <div class="size-selector">
           <button class="size-btn" data-size="small" onclick="setFontSize('small')">小</button>
@@ -236,6 +246,7 @@
   <script>
     const STORAGE_KEY = 'my_quotes_data';
     const FONT_SIZE_KEY = 'quote_font_size';
+    const ORIENTATION_KEY = 'quote_orientation';
     const FONT_SIZE_MAP = { small: '1rem', medium: '1.35rem', large: '1.7rem', xlarge: '2.1rem' };
     let editingId = null;
     let shuffleQueue = [];
@@ -251,6 +262,19 @@
     function applyFontSize() {
       const size = localStorage.getItem(FONT_SIZE_KEY) || 'medium';
       setFontSize(size);
+    }
+
+    function setOrientation(orientation) {
+      const isVertical = orientation === 'vertical';
+      localStorage.setItem(ORIENTATION_KEY, isVertical ? 'vertical' : 'horizontal');
+      document.getElementById('quoteCard').classList.toggle('is-vertical', isVertical);
+      document.querySelectorAll('[data-orientation]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.orientation === (isVertical ? 'vertical' : 'horizontal'));
+      });
+    }
+
+    function applyOrientation() {
+      setOrientation(localStorage.getItem(ORIENTATION_KEY) || 'horizontal');
     }
 
     function shuffleArray(arr) {
@@ -448,6 +472,7 @@
 
     displayRandomQuote();
     applyFontSize();
+    applyOrientation();
   </script>
 </body>
 </html>
