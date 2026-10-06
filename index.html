@@ -38,7 +38,7 @@
     }
 
     /* ヘッダー（ミニマルな設定アイコン） */
-    header { display: flex; justify-content: flex-end; padding: 10px 0; }
+    header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
     .icon-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-sub); padding: 8px; border-radius: 50%; transition: color 0.2s, transform 0.2s; }
     .icon-btn:hover { color: var(--accent-color); transform: rotate(30deg); }
 
@@ -111,12 +111,41 @@
     .size-selector { display: flex; gap: 8px; }
     .size-btn { flex: 1; background: #15181e; color: var(--text-sub); border: 1px solid var(--border-color); padding: 12px 8px; border-radius: 10px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-align: center; }
     .size-btn.active { background: var(--accent-color); color: #000; border-color: var(--accent-color); font-weight: 700; }
+    .home-actions { display: flex; justify-content: center; gap: 18px; padding: 12px 0; }
+    .home-actions .icon-btn { border: 1px solid var(--border-color); width: 46px; height: 46px; font-size: 22px; }
+    .quote-theme { flex-shrink: 0; color: var(--text-sub); font-size: 0.72rem; text-align: right; letter-spacing: 0.08em; }
+    .screen { display: none; width: 100%; min-height: 100vh; padding: 24px; }
+    .screen.active { display: block; }
+    .screen-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+    .screen-header h1 { flex: 1; font-size: 1.1rem; font-weight: 600; }
+    .playlist-playback-title { display: none; margin-right: auto; padding: 8px 0; border: 0; background: none; color: var(--text-main); font-size: 0.9rem; text-align: left; cursor: pointer; }
+    .playlist-playback-title.is-visible { display: block; }
+    .playlist-list { display: flex; flex-direction: column; gap: 10px; }
+    .playlist-row { display: flex; align-items: center; gap: 12px; padding: 16px; background: #15181e; border: 1px solid var(--border-color); border-radius: 10px; }
+    .playlist-open { flex: 1; min-width: 0; background: none; border: 0; color: var(--text-main); text-align: left; cursor: pointer; }
+    .playlist-name { display: block; font-size: 0.95rem; }
+    .playlist-count { display: block; margin-top: 5px; color: var(--text-sub); font-size: 0.75rem; }
+    .playlist-controls { display: flex; align-items: center; gap: 8px; }
+    .playlist-detail { display: flex; flex-direction: column; gap: 14px; }
+    .playlist-player { padding: 22px 18px; border: 1px solid var(--border-color); border-radius: 12px; background: rgba(255,255,255,0.025); }
+    .playlist-player-quote { font-size: 1.1rem; line-height: 1.7; white-space: pre-wrap; }
+    .playlist-player-meta { margin-top: 12px; color: var(--accent-color); text-align: right; font-size: 0.8rem; }
+    .playback-controls { display: flex; gap: 8px; margin-top: 16px; }
+    .playback-controls button { flex: 1; }
+    .inline-actions { display: flex; gap: 8px; }
+    .inline-actions button { flex: 1; }
+    .empty-state { padding: 24px 8px; color: var(--text-sub); text-align: center; font-size: 0.9rem; }
+    .list-item-meta { margin-top: 5px; color: var(--text-sub); font-size: 0.72rem; }
+    @media (min-width: 600px) {
+      .screen { max-width: 560px; margin: 0 auto; }
+    }
   </style>
 </head>
 <body>
 
   <div class="app-container">
     <header>
+      <button class="playlist-playback-title" id="playlistPlaybackTitle" aria-label="プレイリスト詳細へ戻る"></button>
       <button class="icon-btn" id="openMenuBtn" aria-label="設定">⚙︎</button>
     </header>
 
@@ -124,12 +153,25 @@
       <div class="quote-card" id="quoteCard">
         <div class="quote-text" id="quoteText">画面をタップして、言葉を呼び出しましょう。</div>
         <div class="quote-author" id="quoteAuthor"></div>
+        <div class="quote-theme" id="quoteTheme"></div>
       </div>
       <div class="tap-hint">Tap to next</div>
     </main>
 
-    <div></div>
+    <div class="home-actions">
+      <button class="icon-btn" id="addToPlaylistBtn" aria-label="表示中の名言をプレイリストに追加" title="プレイリストに追加">＋</button>
+      <button class="icon-btn" id="openPlaylistsBtn" aria-label="プレイリスト一覧" title="プレイリスト">☷</button>
+    </div>
   </div>
+
+  <main class="screen" id="playlistScreen" aria-label="プレイリスト">
+    <div class="screen-header">
+      <button class="icon-btn" id="playlistBackBtn" aria-label="ホームへ戻る">←</button>
+      <h1 id="playlistScreenTitle">PLAYLISTS</h1>
+      <button class="icon-btn" id="newPlaylistBtn" aria-label="新しいプレイリスト">＋</button>
+    </div>
+    <div id="playlistScreenContent"></div>
+  </main>
 
   <!-- ① メニューモーダル -->
   <div class="modal" id="menuModal">
@@ -141,6 +183,7 @@
       <ul class="menu-list">
         <li class="menu-item" onclick="switchModal('menuModal', 'addModal')">名言を追加 <span>→</span></li>
         <li class="menu-item" onclick="switchModal('menuModal', 'listModal')">一覧を見る <span>→</span></li>
+        <li class="menu-item" onclick="closeModal('menuModal'); showPlaylists()">プレイリスト <span>→</span></li>
         <li class="menu-item" onclick="switchModal('menuModal', 'settingsModal')">表示設定 <span>→</span></li>
         <li class="menu-item" onclick="switchModal('menuModal', 'backupModal')">バックアップ / 復元 <span>→</span></li>
       </ul>
@@ -161,6 +204,10 @@
       <div class="form-group">
         <label>発言者・出典</label>
         <input type="text" id="inputAuthor" placeholder="例: アインシュタイン">
+      </div>
+      <div class="form-group">
+        <label>テーマ</label>
+        <input type="text" id="inputTheme" placeholder="例: 挑戦、人生">
       </div>
       <button class="primary-btn" onclick="addQuote()">保存する</button>
     </div>
@@ -239,17 +286,45 @@
         <label>発言者・出典</label>
         <input type="text" id="editQuoteAuthor" placeholder="例: アインシュタイン">
       </div>
+      <div class="form-group">
+        <label>テーマ</label>
+        <input type="text" id="editQuoteTheme" placeholder="例: 挑戦、人生">
+      </div>
       <button class="primary-btn" onclick="saveEdit()">更新する</button>
+    </div>
+  </div>
+
+  <div class="modal" id="playlistAddModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">ADD TO PLAYLIST</span>
+        <button class="icon-btn" onclick="closeModal('playlistAddModal')" aria-label="閉じる">✕</button>
+      </div>
+      <div id="playlistAddChoices" class="playlist-list"></div>
+      <div class="form-group">
+        <label for="newPlaylistName">新しいプレイリスト</label>
+        <input id="newPlaylistName" type="text" maxlength="60" placeholder="プレイリスト名">
+        <button class="secondary-btn" onclick="createPlaylistFromHome()">作成して追加</button>
+      </div>
     </div>
   </div>
 
   <script>
     const STORAGE_KEY = 'my_quotes_data';
+    const PLAYLIST_STORAGE_KEY = 'my_quotes_playlists';
     const FONT_SIZE_KEY = 'quote_font_size';
     const ORIENTATION_KEY = 'quote_orientation';
     const FONT_SIZE_MAP = { small: '1rem', medium: '1.35rem', large: '1.7rem', xlarge: '2.1rem' };
     let editingId = null;
     let shuffleQueue = [];
+    let currentPlaylistId = null;
+    let playlistPlayOrder = 'sequential';
+    let playlistPlayIndex = 0;
+    let currentHomeQuoteId = null;
+    let playlistShuffleQueue = [];
+    let playlistHistory = [];
+    let playlistHistoryCursor = 0;
+    let playlistPlaybackActive = false;
 
     function setFontSize(size) {
       localStorage.setItem(FONT_SIZE_KEY, size);
@@ -296,6 +371,18 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(quotes));
     }
 
+    function getPlaylists() {
+      return JSON.parse(localStorage.getItem(PLAYLIST_STORAGE_KEY)) || [];
+    }
+
+    function savePlaylists(playlists) {
+      localStorage.setItem(PLAYLIST_STORAGE_KEY, JSON.stringify(playlists));
+    }
+
+    function makeId() {
+      return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
     function displayRandomQuote() {
       const quotes = getQuotes();
       document.getElementById('quoteCard').scrollTop = 0;
@@ -303,6 +390,8 @@
       if (quotes.length === 0) {
         document.getElementById('quoteText').innerText = "言葉が登録されていません。「⚙︎」メニューから追加してください。";
         document.getElementById('quoteAuthor').innerText = "";
+        document.getElementById('quoteTheme').innerText = "";
+        currentHomeQuoteId = null;
         return;
       }
 
@@ -325,12 +414,22 @@
       setTimeout(() => {
         document.getElementById('quoteText').innerText = q.text;
         document.getElementById('quoteAuthor').innerText = q.author ? `— ${q.author}` : '';
+        document.getElementById('quoteTheme').innerText = q.theme ? `# ${q.theme}` : '';
+        currentHomeQuoteId = q.id;
         card.style.opacity = 1;
       }, 150);
     }
 
-    document.getElementById('cardArea').addEventListener('click', displayRandomQuote);
+    document.getElementById('cardArea').addEventListener('click', () => {
+      if (playlistPlaybackActive) stepPlaylist(1);
+      else displayRandomQuote();
+    });
     document.getElementById('openMenuBtn').addEventListener('click', () => openModal('menuModal'));
+    document.getElementById('openPlaylistsBtn').addEventListener('click', showPlaylists);
+    document.getElementById('playlistBackBtn').addEventListener('click', hidePlaylists);
+    document.getElementById('newPlaylistBtn').addEventListener('click', createPlaylistFromScreen);
+    document.getElementById('addToPlaylistBtn').addEventListener('click', openPlaylistAddModal);
+    document.getElementById('playlistPlaybackTitle').addEventListener('click', returnToPlaylistDetail);
 
     function openModal(id) {
       const modal = document.getElementById(id);
@@ -353,14 +452,16 @@
     function addQuote() {
       const text = document.getElementById('inputQuote').value.trim();
       const author = document.getElementById('inputAuthor').value.trim();
+      const theme = document.getElementById('inputTheme').value.trim();
       if (!text) { alert('言葉を入力してください'); return; }
 
       const quotes = getQuotes();
-      quotes.push({ id: Date.now(), text, author });
+      quotes.push({ id: Date.now(), text, author, theme });
       saveQuotes(quotes);
 
       document.getElementById('inputQuote').value = '';
       document.getElementById('inputAuthor').value = '';
+      document.getElementById('inputTheme').value = '';
       closeModal('addModal');
       displayRandomQuote();
     }
@@ -370,7 +471,7 @@
       const keyword = (document.getElementById('searchInput')?.value || '').toLowerCase();
       const all = getQuotes();
       const quotes = keyword
-        ? all.filter(q => q.text.toLowerCase().includes(keyword) || (q.author && q.author.toLowerCase().includes(keyword)))
+        ? all.filter(q => q.text.toLowerCase().includes(keyword) || (q.author && q.author.toLowerCase().includes(keyword)) || (q.theme && q.theme.toLowerCase().includes(keyword)))
         : all;
       container.innerHTML = '';
 
@@ -386,6 +487,7 @@
           <div style="flex:1; min-width:0;">
             <div class="list-item-text">${escapeHtml(q.text)}</div>
             ${q.author ? `<div class="list-item-author">— ${escapeHtml(q.author)}</div>` : ''}
+            ${q.theme ? `<div class="list-item-meta"># ${escapeHtml(q.theme)}</div>` : ''}
           </div>
           <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
             <button class="edit-btn" onclick="editQuote(${q.id})">編集</button>
@@ -402,17 +504,19 @@
       editingId = id;
       document.getElementById('editQuoteText').value = q.text;
       document.getElementById('editQuoteAuthor').value = q.author || '';
+      document.getElementById('editQuoteTheme').value = q.theme || '';
       switchModal('listModal', 'editModal');
     }
 
     function saveEdit() {
       const text = document.getElementById('editQuoteText').value.trim();
       const author = document.getElementById('editQuoteAuthor').value.trim();
+      const theme = document.getElementById('editQuoteTheme').value.trim();
       if (!text) { alert('言葉を入力してください'); return; }
       let quotes = getQuotes();
       const idx = quotes.findIndex(q => q.id === editingId);
       if (idx !== -1) {
-        quotes[idx] = { ...quotes[idx], text, author };
+        quotes[idx] = { ...quotes[idx], text, author, theme };
         saveQuotes(quotes);
       }
       editingId = null;
@@ -425,13 +529,14 @@
       let quotes = getQuotes();
       quotes = quotes.filter(q => q.id !== id);
       saveQuotes(quotes);
+      savePlaylists(getPlaylists().map(playlist => ({ ...playlist, quoteIds: playlist.quoteIds.filter(quoteId => quoteId !== id) })));
       renderList();
       displayRandomQuote();
     }
 
     function exportData() {
       const quotes = getQuotes();
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(quotes, null, 2));
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ quotes, playlists: getPlaylists() }, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
       downloadAnchor.setAttribute("download", `meigen_backup_${new Date().toISOString().slice(0,10)}.json`);
@@ -447,14 +552,19 @@
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
-          const importedQuotes = JSON.parse(e.target.result);
-          if (!Array.isArray(importedQuotes)) throw new Error();
+          const importedData = JSON.parse(e.target.result);
+          const importedQuotes = Array.isArray(importedData) ? importedData : importedData.quotes;
+          const importedPlaylists = Array.isArray(importedData) ? [] : (importedData.playlists || []);
+          if (!Array.isArray(importedQuotes) || !Array.isArray(importedPlaylists)) throw new Error();
           
           if (confirm('既存のデータに上書き復元しますか？（キャンセルで追加登録）')) {
             saveQuotes(importedQuotes);
+            savePlaylists(importedPlaylists);
           } else {
             const current = getQuotes();
             saveQuotes([...current, ...importedQuotes]);
+            const currentPlaylists = getPlaylists();
+            savePlaylists([...currentPlaylists, ...importedPlaylists.map(playlist => ({ ...playlist, id: makeId() }))]);
           }
           alert('データの復元が完了しました');
           closeModal('backupModal');
@@ -468,6 +578,250 @@
 
     function escapeHtml(str) {
       return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    function showPlaylists() {
+      playlistPlaybackActive = false;
+      document.querySelector('.app-container').style.display = 'none';
+      document.getElementById('playlistScreen').classList.add('active');
+      currentPlaylistId = null;
+      renderPlaylists();
+    }
+
+    function hidePlaylists() {
+      document.getElementById('playlistScreen').classList.remove('active');
+      document.querySelector('.app-container').style.display = '';
+      currentPlaylistId = null;
+      playlistPlaybackActive = false;
+      document.getElementById('playlistPlaybackTitle').classList.remove('is-visible');
+    }
+
+    function renderPlaylists() {
+      const content = document.getElementById('playlistScreenContent');
+      const title = document.getElementById('playlistScreenTitle');
+      const playlists = getPlaylists();
+      if (currentPlaylistId === null) {
+        title.textContent = 'PLAYLISTS';
+        content.innerHTML = '';
+        if (!playlists.length) {
+          content.innerHTML = '<p class="empty-state">プレイリストはまだありません。</p>';
+          return;
+        }
+        const list = document.createElement('div');
+        list.className = 'playlist-list';
+        playlists.forEach(playlist => {
+          const row = document.createElement('div');
+          row.className = 'playlist-row';
+          row.innerHTML = `<button class="playlist-open" onclick="openPlaylist('${escapeHtml(String(playlist.id))}')"><span class="playlist-name">${escapeHtml(playlist.name)}</span><span class="playlist-count">${playlist.quoteIds.length} 件</span></button><div class="playlist-controls"><button class="edit-btn" onclick="renamePlaylist('${escapeHtml(String(playlist.id))}')" aria-label="名前を変更">編集</button><button class="delete-btn" onclick="deletePlaylist('${escapeHtml(String(playlist.id))}')" aria-label="プレイリストを削除">削除</button></div>`;
+          list.appendChild(row);
+        });
+        content.appendChild(list);
+        return;
+      }
+
+      const playlist = playlists.find(item => String(item.id) === String(currentPlaylistId));
+      if (!playlist) { currentPlaylistId = null; renderPlaylists(); return; }
+      title.textContent = playlist.name;
+      const quotes = playlist.quoteIds.map(id => getQuotes().find(quote => String(quote.id) === String(id))).filter(Boolean);
+      content.innerHTML = `<section class="playlist-detail"><div class="size-selector"><button class="size-btn ${playlistPlayOrder === 'sequential' ? 'active' : ''}" onclick="setPlaylistOrder('sequential')">順番</button><button class="size-btn ${playlistPlayOrder === 'random' ? 'active' : ''}" onclick="setPlaylistOrder('random')">ランダム</button></div><button class="primary-btn" onclick="startPlaylistPlayback()" ${quotes.length ? '' : 'disabled'}>再生</button><div class="inline-actions"><button class="secondary-btn" onclick="renderPlaylistLibrary()">名言を追加</button></div>${quotes.length ? '' : '<p class="empty-state">このプレイリストには名言がありません。</p>'}<div id="playlistQuoteItems" class="quote-list"></div><div id="playlistQuoteLibrary" class="quote-list"></div></section>`;
+      const items = document.getElementById('playlistQuoteItems');
+      quotes.forEach((quote, index) => {
+        const row = document.createElement('div');
+        row.className = 'list-item';
+        row.innerHTML = `<div style="flex:1; min-width:0;"><div class="list-item-text">${escapeHtml(quote.text)}</div>${quote.author ? `<div class="list-item-author">— ${escapeHtml(quote.author)}</div>` : ''}${quote.theme ? `<div class="list-item-meta"># ${escapeHtml(quote.theme)}</div>` : ''}</div><div class="playlist-controls"><button class="edit-btn" onclick="movePlaylistQuote(${index}, -1)" aria-label="上へ" ${index === 0 ? 'disabled' : ''}>↑</button><button class="edit-btn" onclick="movePlaylistQuote(${index}, 1)" aria-label="下へ" ${index === quotes.length - 1 ? 'disabled' : ''}>↓</button><button class="delete-btn" onclick="removeQuoteFromPlaylist('${escapeHtml(String(quote.id))}')" aria-label="リストから外す">外す</button></div>`;
+        items.appendChild(row);
+      });
+    }
+
+    function createPlaylistFromScreen() {
+      const name = prompt('プレイリスト名を入力してください');
+      if (name === null) return;
+      const trimmedName = name.trim();
+      if (!trimmedName) { alert('プレイリスト名を入力してください'); return; }
+      const playlists = getPlaylists();
+      playlists.push({ id: makeId(), name: trimmedName, quoteIds: [] });
+      savePlaylists(playlists);
+      renderPlaylists();
+    }
+
+    function createPlaylistFromHome() {
+      const nameInput = document.getElementById('newPlaylistName');
+      const name = nameInput.value.trim();
+      if (!name) { alert('プレイリスト名を入力してください'); return; }
+      const playlists = getPlaylists();
+      const playlist = { id: makeId(), name, quoteIds: currentHomeQuoteId === null ? [] : [currentHomeQuoteId] };
+      playlists.push(playlist);
+      savePlaylists(playlists);
+      nameInput.value = '';
+      closeModal('playlistAddModal');
+    }
+
+    function openPlaylistAddModal() {
+      if (currentHomeQuoteId === null) { alert('先に名言を表示してください'); return; }
+      const choices = document.getElementById('playlistAddChoices');
+      const playlists = getPlaylists();
+      choices.innerHTML = '';
+      if (!playlists.length) choices.innerHTML = '<p class="empty-state">プレイリストはありません。下から作成できます。</p>';
+      playlists.forEach(playlist => {
+        const button = document.createElement('button');
+        button.className = 'secondary-btn';
+        button.textContent = playlist.name;
+        button.onclick = () => addQuoteToPlaylist(playlist.id, currentHomeQuoteId);
+        choices.appendChild(button);
+      });
+      openModal('playlistAddModal');
+    }
+
+    function addQuoteToPlaylist(playlistId, quoteId) {
+      const playlists = getPlaylists();
+      const playlist = playlists.find(item => String(item.id) === String(playlistId));
+      if (!playlist) return;
+      if (playlist.quoteIds.some(id => String(id) === String(quoteId))) { alert('この名言は追加済みです'); return; }
+      playlist.quoteIds.push(quoteId);
+      savePlaylists(playlists);
+      closeModal('playlistAddModal');
+      if (document.getElementById('playlistScreen').classList.contains('active')) renderPlaylists();
+    }
+
+    function openPlaylist(playlistId) {
+      currentPlaylistId = playlistId;
+      playlistPlayIndex = 0;
+      playlistShuffleQueue = [];
+      playlistHistory = [0];
+      playlistHistoryCursor = 0;
+      renderPlaylists();
+    }
+
+    function startPlaylistPlayback() {
+      const playlist = getPlaylists().find(item => String(item.id) === String(currentPlaylistId));
+      if (!playlist || !playlist.quoteIds.length) return;
+      playlistPlayIndex = 0;
+      playlistShuffleQueue = [];
+      playlistHistory = [0];
+      playlistHistoryCursor = 0;
+      playlistPlaybackActive = true;
+      const title = document.getElementById('playlistPlaybackTitle');
+      title.textContent = playlist.name;
+      title.setAttribute('aria-label', `${playlist.name}、詳細へ戻る`);
+      title.classList.add('is-visible');
+      document.getElementById('playlistScreen').classList.remove('active');
+      document.querySelector('.app-container').style.display = '';
+      renderPlaylistPlaybackQuote();
+    }
+
+    function returnToPlaylistDetail() {
+      playlistPlaybackActive = false;
+      document.querySelector('.app-container').style.display = 'none';
+      document.getElementById('playlistScreen').classList.add('active');
+      document.getElementById('playlistPlaybackTitle').classList.remove('is-visible');
+      renderPlaylists();
+    }
+
+    function renderPlaylistPlaybackQuote() {
+      const playlist = getPlaylists().find(item => String(item.id) === String(currentPlaylistId));
+      const quote = playlist?.quoteIds.map(id => getQuotes().find(item => String(item.id) === String(id))).filter(Boolean)[playlistPlayIndex];
+      if (!quote) return;
+      document.getElementById('quoteText').textContent = quote.text;
+      document.getElementById('quoteAuthor').textContent = quote.author ? `— ${quote.author}` : '';
+      document.getElementById('quoteTheme').textContent = quote.theme ? `# ${quote.theme}` : '';
+      currentHomeQuoteId = quote.id;
+      document.getElementById('quoteCard').scrollTop = 0;
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+
+    function renamePlaylist(playlistId) {
+      const playlists = getPlaylists();
+      const playlist = playlists.find(item => String(item.id) === String(playlistId));
+      if (!playlist) return;
+      const name = prompt('プレイリスト名を入力してください', playlist.name);
+      if (name === null) return;
+      if (!name.trim()) { alert('プレイリスト名を入力してください'); return; }
+      playlist.name = name.trim();
+      savePlaylists(playlists);
+      renderPlaylists();
+    }
+
+    function deletePlaylist(playlistId) {
+      if (!confirm('プレイリストを削除しますか？名言自体は削除されません。')) return;
+      savePlaylists(getPlaylists().filter(item => String(item.id) !== String(playlistId)));
+      renderPlaylists();
+    }
+
+    function removeQuoteFromPlaylist(quoteId) {
+      const playlists = getPlaylists();
+      const playlist = playlists.find(item => String(item.id) === String(currentPlaylistId));
+      if (!playlist) return;
+      playlist.quoteIds = playlist.quoteIds.filter(id => String(id) !== String(quoteId));
+      savePlaylists(playlists);
+      playlistPlayIndex = Math.min(playlistPlayIndex, Math.max(playlist.quoteIds.length - 1, 0));
+      playlistHistory = playlist.quoteIds.length ? [playlistPlayIndex] : [];
+      playlistHistoryCursor = 0;
+      renderPlaylists();
+    }
+
+    function movePlaylistQuote(index, direction) {
+      const playlists = getPlaylists();
+      const playlist = playlists.find(item => String(item.id) === String(currentPlaylistId));
+      const nextIndex = index + direction;
+      if (!playlist || nextIndex < 0 || nextIndex >= playlist.quoteIds.length) return;
+      [playlist.quoteIds[index], playlist.quoteIds[nextIndex]] = [playlist.quoteIds[nextIndex], playlist.quoteIds[index]];
+      savePlaylists(playlists);
+      playlistPlayIndex = nextIndex;
+      playlistHistory = [playlistPlayIndex];
+      playlistHistoryCursor = 0;
+      renderPlaylists();
+    }
+
+    function setPlaylistOrder(order) {
+      playlistPlayOrder = order;
+      playlistShuffleQueue = [];
+      playlistHistory = [playlistPlayIndex];
+      playlistHistoryCursor = 0;
+      renderPlaylists();
+    }
+
+    function stepPlaylist(direction) {
+      const playlist = getPlaylists().find(item => String(item.id) === String(currentPlaylistId));
+      if (!playlist || !playlist.quoteIds.length) return;
+      if (playlistPlayOrder === 'sequential') {
+        playlistPlayIndex = Math.max(0, Math.min(playlistPlayIndex + direction, playlist.quoteIds.length - 1));
+      } else {
+        if (direction < 0 && playlistHistoryCursor > 0) {
+          playlistHistoryCursor -= 1;
+          playlistPlayIndex = playlistHistory[playlistHistoryCursor];
+        } else if (direction > 0 && playlistHistoryCursor < playlistHistory.length - 1) {
+          playlistHistoryCursor += 1;
+          playlistPlayIndex = playlistHistory[playlistHistoryCursor];
+        } else if (direction > 0) {
+          if (!playlistShuffleQueue.length) {
+            playlistShuffleQueue = shuffleArray(Array.from({ length: playlist.quoteIds.length }, (_, index) => index));
+            if (playlistShuffleQueue.length > 1 && playlistShuffleQueue[0] === playlistPlayIndex) playlistShuffleQueue.push(playlistShuffleQueue.shift());
+          }
+          playlistPlayIndex = playlistShuffleQueue.shift();
+          playlistHistory = playlistHistory.slice(0, playlistHistoryCursor + 1);
+          playlistHistory.push(playlistPlayIndex);
+          playlistHistoryCursor += 1;
+        }
+      }
+      if (playlistPlaybackActive) renderPlaylistPlaybackQuote();
+      else renderPlaylists();
+    }
+
+    function renderPlaylistLibrary() {
+      const library = document.getElementById('playlistQuoteLibrary');
+      const playlist = getPlaylists().find(item => String(item.id) === String(currentPlaylistId));
+      if (!playlist || !library) return;
+      library.innerHTML = '<h2 class="modal-title">名言を選択</h2>';
+      getQuotes().filter(quote => !playlist.quoteIds.some(id => String(id) === String(quote.id))).forEach(quote => {
+        const button = document.createElement('button');
+        button.className = 'list-item';
+        button.style.width = '100%';
+        button.style.textAlign = 'left';
+        button.innerHTML = `<span class="list-item-text">${escapeHtml(quote.text)}${quote.author ? `<span class="list-item-author" style="display:block">— ${escapeHtml(quote.author)}</span>` : ''}${quote.theme ? `<span class="list-item-meta" style="display:block"># ${escapeHtml(quote.theme)}</span>` : ''}</span><span class="edit-btn">追加</span>`;
+        button.onclick = () => addQuoteToPlaylist(currentPlaylistId, quote.id);
+        library.appendChild(button);
+      });
+      if (!library.children.length || library.children.length === 1) library.innerHTML += '<p class="empty-state">追加できる名言はありません。</p>';
     }
 
     displayRandomQuote();
