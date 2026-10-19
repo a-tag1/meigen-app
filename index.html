@@ -65,6 +65,7 @@
     .quote-card::before { content: "“"; position: absolute; top: 12px; left: 20px; font-size: 4rem; color: rgba(255, 255, 255, 0.05); font-family: Georgia, serif; line-height: 1; }
     .quote-card:active { transform: scale(0.98); }
     .quote-text { min-height: 0; overflow-y: auto; font-size: 1.35rem; font-weight: 300; line-height: 1.7; letter-spacing: 0.04em; color: var(--text-main); text-shadow: 0 0 20px rgba(255,255,255,0.05); }
+    .quote-text .tate-chu-yoko { text-combine-upright: all; }
     .quote-author { flex-shrink: 0; font-size: 0.85rem; color: var(--accent-color); text-align: right; letter-spacing: 0.1em; text-transform: uppercase; }
     .quote-card.is-vertical { height: min(65vh, 560px); flex-direction: row-reverse; align-items: stretch; }
     .quote-card.is-vertical .quote-text { flex: 0 1 auto; width: fit-content; max-width: 100%; height: 100%; margin-left: auto; margin-right: auto; writing-mode: vertical-rl; text-orientation: mixed; overflow-x: auto; overflow-y: hidden; }
@@ -357,6 +358,27 @@
       setFontSize(size);
     }
 
+    function setQuoteText(text) {
+      const quoteText = document.getElementById('quoteText');
+      const value = String(text);
+      const numberPattern = /[0-9０-９]+/g;
+      const fragment = document.createDocumentFragment();
+      let lastIndex = 0;
+      let match;
+
+      while ((match = numberPattern.exec(value)) !== null) {
+        fragment.append(document.createTextNode(value.slice(lastIndex, match.index)));
+        const number = document.createElement('span');
+        number.className = 'tate-chu-yoko';
+        number.textContent = match[0];
+        fragment.append(number);
+        lastIndex = numberPattern.lastIndex;
+      }
+
+      fragment.append(document.createTextNode(value.slice(lastIndex)));
+      quoteText.replaceChildren(fragment);
+    }
+
     function setOrientation(orientation) {
       const isVertical = orientation === 'vertical';
       localStorage.setItem(ORIENTATION_KEY, isVertical ? 'vertical' : 'horizontal');
@@ -406,7 +428,7 @@
       document.getElementById('quoteCard').scrollTop = 0;
       window.scrollTo({ top: 0, behavior: 'auto' });
       if (quotes.length === 0) {
-        document.getElementById('quoteText').innerText = "言葉が登録されていません。「⚙︎」メニューから追加してください。";
+        setQuoteText("言葉が登録されていません。「⚙︎」メニューから追加してください。");
         document.getElementById('quoteAuthor').innerText = "";
         document.getElementById('quoteTheme').innerText = "";
         currentHomeQuoteId = null;
@@ -431,7 +453,7 @@
       const card = document.getElementById('quoteCard');
       card.style.opacity = 0;
       setTimeout(() => {
-        document.getElementById('quoteText').innerText = q.text;
+        setQuoteText(q.text);
         document.getElementById('quoteAuthor').innerText = q.author ? `— ${q.author}` : '';
         document.getElementById('quoteTheme').innerText = q.theme ? `# ${q.theme}` : '';
         currentHomeQuoteId = q.id;
@@ -623,7 +645,7 @@
         } else {
           const updatedQuote = getQuotes().find(q => String(q.id) === String(currentHomeQuoteId));
           if (updatedQuote) {
-            document.getElementById('quoteText').textContent = updatedQuote.text;
+            setQuoteText(updatedQuote.text);
             document.getElementById('quoteAuthor').textContent = updatedQuote.author ? `— ${updatedQuote.author}` : '';
             document.getElementById('quoteTheme').textContent = updatedQuote.theme ? `# ${updatedQuote.theme}` : '';
           }
@@ -855,7 +877,7 @@
       const playlist = getPlaylists().find(item => String(item.id) === String(currentPlaylistId));
       const quote = playlist?.quoteIds.map(id => getQuotes().find(item => String(item.id) === String(id))).filter(Boolean)[playlistPlayIndex];
       if (!quote) return;
-      document.getElementById('quoteText').textContent = quote.text;
+      setQuoteText(quote.text);
       document.getElementById('quoteAuthor').textContent = quote.author ? `— ${quote.author}` : '';
       document.getElementById('quoteTheme').textContent = quote.theme ? `# ${quote.theme}` : '';
       currentHomeQuoteId = quote.id;
