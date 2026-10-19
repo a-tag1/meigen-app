@@ -66,6 +66,8 @@
     .quote-card:active { transform: scale(0.98); }
     .quote-text { min-height: 0; overflow-y: auto; font-size: 1.35rem; font-weight: 300; line-height: 1.7; letter-spacing: 0.04em; color: var(--text-main); text-shadow: 0 0 20px rgba(255,255,255,0.05); }
     .quote-text .tate-chu-yoko { text-combine-upright: all; }
+    .playlist-membership { width: 100%; margin-bottom: 12px; color: var(--text-sub); font-size: 0.8rem; letter-spacing: 0.06em; text-align: center; }
+    .playlist-membership[hidden] { display: none; }
     .quote-author { flex-shrink: 0; font-size: 0.85rem; color: var(--accent-color); text-align: right; letter-spacing: 0.1em; text-transform: uppercase; }
     .quote-card.is-vertical { height: min(65vh, 560px); flex-direction: row-reverse; align-items: stretch; }
     .quote-card.is-vertical .quote-text { flex: 0 1 auto; width: fit-content; max-width: 100%; height: 100%; margin-left: auto; margin-right: auto; writing-mode: vertical-rl; text-orientation: mixed; overflow-x: auto; overflow-y: hidden; }
@@ -113,6 +115,7 @@
     .size-selector { display: flex; gap: 8px; }
     .size-btn { flex: 1; background: #15181e; color: var(--text-sub); border: 1px solid var(--border-color); padding: 12px 8px; border-radius: 10px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-align: center; }
     .size-btn.active { background: var(--accent-color); color: #000; border-color: var(--accent-color); font-weight: 700; }
+    .playlist-choice-btn.is-selected { background: var(--accent-color); color: #000; border-color: var(--accent-color); font-weight: 700; }
     .home-actions { display: flex; justify-content: center; gap: 18px; padding: 12px 0; }
     .home-actions .icon-btn { border: 1px solid var(--border-color); width: 46px; height: 46px; font-size: 22px; }
     .home-actions .icon-btn:disabled { opacity: 0.3; cursor: default; }
@@ -167,6 +170,7 @@
     </header>
 
     <main class="card-area" id="cardArea">
+      <div class="playlist-membership" id="quotePlaylists" hidden></div>
       <div class="quote-card" id="quoteCard">
         <div class="quote-text" id="quoteText">画面をタップして、言葉を呼び出しましょう。</div>
         <div class="quote-author" id="quoteAuthor"></div>
@@ -379,6 +383,16 @@
       quoteText.replaceChildren(fragment);
     }
 
+    function renderQuotePlaylists() {
+      const label = document.getElementById('quotePlaylists');
+      const playlists = currentHomeQuoteId === null ? [] : getPlaylists().filter(playlist =>
+        playlist.quoteIds.some(id => String(id) === String(currentHomeQuoteId))
+      );
+      label.hidden = playlists.length === 0;
+      label.textContent = playlists.length ? `${playlists[0].name}${playlists.length > 1 ? `　他${playlists.length - 1}` : ''}` : '';
+      label.title = playlists.map(playlist => playlist.name).join('、');
+    }
+
     function setOrientation(orientation) {
       const isVertical = orientation === 'vertical';
       localStorage.setItem(ORIENTATION_KEY, isVertical ? 'vertical' : 'horizontal');
@@ -432,6 +446,7 @@
         document.getElementById('quoteAuthor').innerText = "";
         document.getElementById('quoteTheme').innerText = "";
         currentHomeQuoteId = null;
+        renderQuotePlaylists();
         updateCurrentQuoteActions();
         return;
       }
@@ -457,6 +472,7 @@
         document.getElementById('quoteAuthor').innerText = q.author ? `— ${q.author}` : '';
         document.getElementById('quoteTheme').innerText = q.theme ? `# ${q.theme}` : '';
         currentHomeQuoteId = q.id;
+        renderQuotePlaylists();
         updateCurrentQuoteActions();
         card.style.opacity = 1;
       }, 150);
@@ -648,6 +664,7 @@
             setQuoteText(updatedQuote.text);
             document.getElementById('quoteAuthor').textContent = updatedQuote.author ? `— ${updatedQuote.author}` : '';
             document.getElementById('quoteTheme').textContent = updatedQuote.theme ? `# ${updatedQuote.theme}` : '';
+            renderQuotePlaylists();
           }
         }
         return;
@@ -808,24 +825,43 @@
       const playlist = { id: makeId(), name, quoteIds: currentHomeQuoteId === null ? [] : [currentHomeQuoteId] };
       playlists.push(playlist);
       savePlaylists(playlists);
+      renderQuotePlaylists();
       nameInput.value = '';
       closeModal('playlistAddModal');
     }
 
-    function openPlaylistAddModal() {
-      if (currentHomeQuoteId === null) { alert('先に名言を表示してください'); return; }
+    function renderPlaylistAddChoices() {
       const choices = document.getElementById('playlistAddChoices');
       const playlists = getPlaylists();
       choices.innerHTML = '';
       if (!playlists.length) choices.innerHTML = '<p class="empty-state">プレイリストはありません。下から作成できます。</p>';
       playlists.forEach(playlist => {
+        const isSelected = playlist.quoteIds.some(id => String(id) === String(currentHomeQuoteId));
         const button = document.createElement('button');
-        button.className = 'secondary-btn';
+        button.className = `secondary-btn playlist-choice-btn${isSelected ? ' is-selected' : ''}`;
         button.textContent = playlist.name;
-        button.onclick = () => addQuoteToPlaylist(playlist.id, currentHomeQuoteId);
+        button.setAttribute('aria-pressed', String(isSelected));
+        button.onclick = () => toggleQuoteInPlaylist(playlist.id);
         choices.appendChild(button);
       });
+    }
+
+    function openPlaylistAddModal() {
+      if (currentHomeQuoteId === null) { alert('先に名言を表示してください'); return; }
+      renderPlaylistAddChoices();
       openModal('playlistAddModal');
+    }
+
+    function toggleQuoteInPlaylist(playlistId) {
+      const playlists = getPlaylists();
+      const playlist = playlists.find(item => String(item.id) === String(playlistId));
+      if (!playlist || currentHomeQuoteId === null) return;
+      const quoteIndex = playlist.quoteIds.findIndex(id => String(id) === String(currentHomeQuoteId));
+      if (quoteIndex === -1) playlist.quoteIds.push(currentHomeQuoteId);
+      else playlist.quoteIds.splice(quoteIndex, 1);
+      savePlaylists(playlists);
+      renderQuotePlaylists();
+      renderPlaylistAddChoices();
     }
 
     function addQuoteToPlaylist(playlistId, quoteId) {
@@ -835,6 +871,7 @@
       if (playlist.quoteIds.some(id => String(id) === String(quoteId))) { alert('この名言は追加済みです'); return; }
       playlist.quoteIds.push(quoteId);
       savePlaylists(playlists);
+      renderQuotePlaylists();
       closeModal('playlistAddModal');
       if (document.getElementById('playlistScreen').classList.contains('active')) renderPlaylists();
     }
@@ -881,6 +918,7 @@
       document.getElementById('quoteAuthor').textContent = quote.author ? `— ${quote.author}` : '';
       document.getElementById('quoteTheme').textContent = quote.theme ? `# ${quote.theme}` : '';
       currentHomeQuoteId = quote.id;
+      renderQuotePlaylists();
       updateCurrentQuoteActions();
       document.getElementById('quoteCard').scrollTop = 0;
       window.scrollTo({ top: 0, behavior: 'auto' });
@@ -895,12 +933,14 @@
       if (!name.trim()) { alert('プレイリスト名を入力してください'); return; }
       playlist.name = name.trim();
       savePlaylists(playlists);
+      renderQuotePlaylists();
       renderPlaylists();
     }
 
     function deletePlaylist(playlistId) {
       if (!confirm('プレイリストを削除しますか？名言自体は削除されません。')) return;
       savePlaylists(getPlaylists().filter(item => String(item.id) !== String(playlistId)));
+      renderQuotePlaylists();
       renderPlaylists();
     }
 
@@ -910,6 +950,7 @@
       if (!playlist) return;
       playlist.quoteIds = playlist.quoteIds.filter(id => String(id) !== String(quoteId));
       savePlaylists(playlists);
+      renderQuotePlaylists();
       playlistPlayIndex = Math.min(playlistPlayIndex, Math.max(playlist.quoteIds.length - 1, 0));
       playlistHistory = playlist.quoteIds.length ? [playlistPlayIndex] : [];
       playlistHistoryCursor = 0;
