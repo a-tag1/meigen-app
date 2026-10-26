@@ -115,6 +115,9 @@
     .size-selector { display: flex; gap: 8px; }
     .size-btn { flex: 1; background: #15181e; color: var(--text-sub); border: 1px solid var(--border-color); padding: 12px 8px; border-radius: 10px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-align: center; }
     .size-btn.active { background: var(--accent-color); color: #000; border-color: var(--accent-color); font-weight: 700; }
+    .font-size-control { display: flex; align-items: center; gap: 14px; }
+    .font-size-control input[type="range"] { flex: 1; min-width: 0; padding: 0; background: transparent; border: 0; border-radius: 0; accent-color: var(--accent-color); }
+    .font-size-value { min-width: 3.5em; color: var(--text-main); text-align: right; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
     .playlist-choice-btn.is-selected { background: var(--accent-color); color: #000; border-color: var(--accent-color); font-weight: 700; }
     .home-actions { display: flex; justify-content: center; gap: 18px; padding: 12px 0; }
     .home-actions .icon-btn { border: 1px solid var(--border-color); width: 46px; height: 46px; font-size: 22px; }
@@ -281,12 +284,10 @@
         </div>
       </div>
       <div class="form-group">
-        <label>文字サイズ</label>
-        <div class="size-selector">
-          <button class="size-btn" data-size="small" onclick="setFontSize('small')">小</button>
-          <button class="size-btn" data-size="medium" onclick="setFontSize('medium')">中</button>
-          <button class="size-btn" data-size="large" onclick="setFontSize('large')">大</button>
-          <button class="size-btn" data-size="xlarge" onclick="setFontSize('xlarge')">特大</button>
+        <label for="fontSizeSlider">文字サイズ</label>
+        <div class="font-size-control">
+          <input id="fontSizeSlider" type="range" min="12" max="48" step="1" value="22" aria-label="名言本文の文字サイズ" oninput="setFontSize(this.value)">
+          <output id="fontSizeValue" class="font-size-value" for="fontSizeSlider">22px</output>
         </div>
       </div>
     </div>
@@ -335,7 +336,7 @@
     const PLAYLIST_STORAGE_KEY = 'my_quotes_playlists';
     const FONT_SIZE_KEY = 'quote_font_size';
     const ORIENTATION_KEY = 'quote_orientation';
-    const FONT_SIZE_MAP = { small: '1rem', medium: '1.35rem', large: '1.7rem', xlarge: '2.1rem' };
+    const LEGACY_FONT_SIZE_MAP = { small: 16, medium: 22, large: 27, xlarge: 34 };
     let editingId = null;
     let shuffleQueue = [];
     let currentPlaylistId = null;
@@ -350,15 +351,19 @@
     let fullscreenControlTimer = null;
 
     function setFontSize(size) {
-      localStorage.setItem(FONT_SIZE_KEY, size);
-      document.getElementById('quoteText').style.fontSize = FONT_SIZE_MAP[size];
-      document.querySelectorAll('.size-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.size === size);
-      });
+      const parsedSize = Number(size);
+      const normalizedSize = Number.isFinite(parsedSize)
+        ? Math.min(48, Math.max(12, Math.round(parsedSize)))
+        : 22;
+      localStorage.setItem(FONT_SIZE_KEY, String(normalizedSize));
+      document.getElementById('quoteText').style.fontSize = `${normalizedSize}px`;
+      document.getElementById('fontSizeSlider').value = normalizedSize;
+      document.getElementById('fontSizeValue').textContent = `${normalizedSize}px`;
     }
 
     function applyFontSize() {
-      const size = localStorage.getItem(FONT_SIZE_KEY) || 'medium';
+      const savedSize = localStorage.getItem(FONT_SIZE_KEY);
+      const size = savedSize === null ? 22 : (LEGACY_FONT_SIZE_MAP[savedSize] || savedSize);
       setFontSize(size);
     }
 
