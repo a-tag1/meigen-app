@@ -290,6 +290,14 @@
           <output id="fontSizeValue" class="font-size-value" for="fontSizeSlider">22px</output>
         </div>
       </div>
+      <div class="form-group">
+        <label>書体</label>
+        <div class="size-selector" role="group" aria-label="名言の書体">
+          <button class="size-btn" type="button" data-quote-font="sans" aria-pressed="false" onclick="setQuoteFont('sans')">ゴシック</button>
+          <button class="size-btn" type="button" data-quote-font="serif" aria-pressed="false" onclick="setQuoteFont('serif')">明朝</button>
+          <button class="size-btn" type="button" data-quote-font="mono" aria-pressed="false" onclick="setQuoteFont('mono')">等幅</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -335,8 +343,10 @@
     const STORAGE_KEY = 'my_quotes_data';
     const PLAYLIST_STORAGE_KEY = 'my_quotes_playlists';
     const FONT_SIZE_KEY = 'quote_font_size';
+    const QUOTE_FONT_KEY = 'quote_font_family';
     const ORIENTATION_KEY = 'quote_orientation';
     const LEGACY_FONT_SIZE_MAP = { small: 16, medium: 22, large: 27, xlarge: 34 };
+    const QUOTE_FONT_MAP = { sans: 'sans-serif', serif: 'serif', mono: 'monospace' };
     let editingId = null;
     let shuffleQueue = [];
     let currentPlaylistId = null;
@@ -365,6 +375,23 @@
       const savedSize = localStorage.getItem(FONT_SIZE_KEY);
       const size = savedSize === null ? 22 : (LEGACY_FONT_SIZE_MAP[savedSize] || savedSize);
       setFontSize(size);
+    }
+
+    function setQuoteFont(font) {
+      const selectedFont = Object.hasOwn(QUOTE_FONT_MAP, font) ? font : 'sans';
+      localStorage.setItem(QUOTE_FONT_KEY, selectedFont);
+      ['quoteText', 'quoteAuthor'].forEach(id => {
+        document.getElementById(id).style.fontFamily = QUOTE_FONT_MAP[selectedFont];
+      });
+      document.querySelectorAll('[data-quote-font]').forEach(button => {
+        const isSelected = button.dataset.quoteFont === selectedFont;
+        button.classList.toggle('active', isSelected);
+        button.setAttribute('aria-pressed', String(isSelected));
+      });
+    }
+
+    function applyQuoteFont() {
+      setQuoteFont(localStorage.getItem(QUOTE_FONT_KEY) || 'sans');
     }
 
     function setQuoteText(text) {
@@ -1029,6 +1056,7 @@
 
     displayRandomQuote();
     applyFontSize();
+    applyQuoteFont();
     applyOrientation();
   </script>
 </body>
