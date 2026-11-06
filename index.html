@@ -144,11 +144,24 @@
     .playlist-playback-title { display: none; margin-right: auto; padding: 8px 0; border: 0; background: none; color: var(--text-main); font-size: 0.9rem; text-align: left; cursor: pointer; }
     .playlist-playback-title.is-visible { display: block; }
     .playlist-list { display: flex; flex-direction: column; gap: 10px; }
-    .playlist-row { display: flex; align-items: center; gap: 12px; padding: 16px; background: #15181e; border: 1px solid var(--border-color); border-radius: 10px; }
+    .playlist-row { display: flex; align-items: center; gap: 12px; padding: 16px; background: #15181e; border: 1px solid var(--border-color); border-radius: 10px; transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, transform 0.18s ease; }
+    .playlist-row.is-dragging { position: relative; z-index: 1; opacity: 0.94; transform: scale(1.025); box-shadow: 0 12px 30px rgba(0,0,0,0.42); }
+    .playlist-row.is-drag-over { border-color: var(--accent-color); background: rgba(102,252,241,0.07); }
+    .playlist-row.is-reordered { animation: playlist-drop-confirm 0.42s ease-out; }
+    @keyframes playlist-drop-confirm {
+      from { box-shadow: 0 0 0 2px var(--accent-color); }
+      to { box-shadow: 0 0 0 0 transparent; }
+    }
     .playlist-open { flex: 1; min-width: 0; background: none; border: 0; color: var(--text-main); text-align: left; cursor: pointer; }
     .playlist-name { display: block; font-size: 0.95rem; }
     .playlist-count { display: block; margin-top: 5px; color: var(--text-sub); font-size: 0.75rem; }
     .playlist-controls { display: flex; align-items: center; gap: 8px; }
+    .playlist-drag-handle { border: 0; background: none; color: var(--text-sub); cursor: grab; font-size: 1.1rem; padding: 4px; touch-action: none; }
+    .playlist-drag-handle:active { cursor: grabbing; }
+    @media (prefers-reduced-motion: reduce) {
+      .playlist-row { transition: none; }
+      .playlist-row.is-reordered { animation: none; }
+    }
     .playlist-detail { display: flex; flex-direction: column; gap: 14px; }
     .playlist-player { padding: 22px 18px; border: 1px solid var(--border-color); border-radius: 12px; background: rgba(255,255,255,0.025); }
     .playlist-player-quote { font-size: 1.1rem; line-height: 1.7; white-space: pre-wrap; }
@@ -354,6 +367,7 @@
     const QUOTE_FONT_MAP = { sans: 'sans-serif', serif: 'serif', mono: 'monospace' };
     let editingId = null;
     let shuffleQueue = [];
+    let playlistDragState = null;
     let currentPlaylistId = null;
     let playlistPlayOrder = 'sequential';
     let playlistPlayIndex = 0;
@@ -531,6 +545,9 @@
     document.getElementById('editCurrentQuoteBtn').addEventListener('click', editCurrentQuote);
     document.getElementById('playlistPlaybackTitle').addEventListener('click', returnToPlaylistDetail);
     document.addEventListener('fullscreenchange', syncFullscreenState);
+    document.addEventListener('pointermove', updatePlaylistDrag);
+    document.addEventListener('pointerup', finishPlaylistDrag);
+    document.addEventListener('pointercancel', cancelPlaylistDrag);
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape') {
         const app = document.querySelector('.app-container');
@@ -820,10 +837,19 @@
         }
         const list = document.createElement('div');
         list.className = 'playlist-list';
-        playlists.forEach(playlist => {
+        playlists.forEach((playlist, index) => {
           const row = document.createElement('div');
           row.className = 'playlist-row';
-          row.innerHTML = `<button class="playlist-open" onclick="openPlaylist('${escapeHtml(String(playlist.id))}')"><span class="playlist-name">${escapeHtml(playlist.name)}</span><span class="playlist-count">${playlist.quoteIds.length} 件</span></button><div class="playlist-controls"><button class="edit-btn" onclick="renamePlaylist('${escapeHtml(String(playlist.id))}')" aria-label="名前を変更">編集</button><button class="delete-btn" onclick="deletePlaylist('${escapeHtml(String(playlist.id))}')" aria-label="プレイリストを削除">削除</button></div>`;
+          row.dataset.playlistId = String(playlist.id);
+          row.innerHTML = `<button class="playlist-open" onclick="openPlaylist('${escapeHtml(String(playlist.id))}')"><span class="playlist-name">${escapeHtml(playlist.name)}</span><span class="playlist-count">${playlist.quoteIds.length} 件</span></button><div class="playlist-controls"><button class="playlist-drag-handle" type="button" aria-label="${escapeHtml(playlist.name)}をドラッグして並べ替え" title="ドラッグして並べ替え">⠿</button><button class="edit-btn" onclick="renamePlaylist('${escapeHtml(String(playlist.id))}')" aria-label="名前を変更">編集</button><button class="delete-btn" onclick="deletePlaylist('${escapeHtml(String(playlist.id))}')" aria-label="プレイリストを削除">削除</button></div>`;
+          const dragHandle = row.querySelector('.playlist-drag-handle');
+          dragHandle.addEventListener('pointerdown', event => {
+            if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
+            event.preventDefault();
+            playlistDragState = { pointerId: event.pointerId, playlistId: String(playlist.id), list, row, dropIndex: index, clientX: event.clientX, clientY: event.clientY, scrollFrame: null };
+            row.classList.add('is-dragging');
+            playlistDragState.scrollFrame = requestAnimationFrame(autoScrollPlaylistList);
+          });
           list.appendChild(row);
         });
         content.appendChild(list);
@@ -980,6 +1006,93 @@
       savePlaylists(getPlaylists().filter(item => String(item.id) !== String(playlistId)));
       renderQuotePlaylists();
       renderPlaylists();
+    }
+
+    function movePlaylist(sourceIndex, dropIndex) {
+      const playlists = getPlaylists();
+      if (sourceIndex < 0 || sourceIndex >= playlists.length) return;
+      const currentList = document.querySelector('#playlistScreenContent .playlist-list');
+      const previousPositions = new Map(Array.from(currentList?.children || [], row => [row.dataset.playlistId, row.getBoundingClientRect().top]));
+      const [playlist] = playlists.splice(sourceIndex, 1);
+      const targetIndex = Math.max(0, Math.min(dropIndex > sourceIndex ? dropIndex - 1 : dropIndex, playlists.length));
+      if (targetIndex === sourceIndex) return;
+      playlists.splice(targetIndex, 0, playlist);
+      savePlaylists(playlists);
+      renderPlaylists();
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const rows = document.querySelectorAll('#playlistScreenContent .playlist-row');
+      rows.forEach(row => {
+        const previousTop = previousPositions.get(row.dataset.playlistId);
+        const offset = previousTop - row.getBoundingClientRect().top;
+        if (previousTop !== undefined && offset && !reducedMotion) {
+          row.animate([{ transform: `translateY(${offset}px)` }, { transform: 'translateY(0)' }], { duration: 220, easing: 'cubic-bezier(0.2, 0, 0, 1)' });
+        }
+      });
+      const movedRow = Array.from(rows).find(row => row.dataset.playlistId === String(playlist.id));
+      if (movedRow) {
+        movedRow.classList.add('is-reordered');
+        setTimeout(() => movedRow.classList.remove('is-reordered'), 450);
+      }
+    }
+
+    function updatePlaylistDrag(event) {
+      const state = playlistDragState;
+      if (!state || event.pointerId !== state.pointerId) return;
+      state.clientX = event.clientX;
+      state.clientY = event.clientY;
+      scrollPlaylistListAtPointer(state);
+      updatePlaylistDropTarget(state);
+    }
+
+    function updatePlaylistDropTarget(state) {
+      const targetRow = document.elementFromPoint(state.clientX, state.clientY)?.closest('.playlist-row');
+      state.list.querySelectorAll('.is-drag-over').forEach(row => row.classList.remove('is-drag-over'));
+      if (!targetRow || !state.list.contains(targetRow)) {
+        state.dropIndex = null;
+        return;
+      }
+      targetRow.classList.add('is-drag-over');
+      const targetIndex = Array.from(state.list.children).indexOf(targetRow);
+      const targetBounds = targetRow.getBoundingClientRect();
+      state.dropIndex = targetIndex + (state.clientY > targetBounds.top + targetBounds.height / 2 ? 1 : 0);
+    }
+
+    function autoScrollPlaylistList() {
+      const state = playlistDragState;
+      if (!state) return;
+      scrollPlaylistListAtPointer(state);
+      updatePlaylistDropTarget(state);
+      state.scrollFrame = requestAnimationFrame(autoScrollPlaylistList);
+    }
+
+    function scrollPlaylistListAtPointer(state) {
+      const edgeSize = 72;
+      if (state.clientY < edgeSize) {
+        window.scrollBy(0, -Math.max(1, Math.ceil((edgeSize - state.clientY) / 16)));
+      } else if (state.clientY > window.innerHeight - edgeSize) {
+        window.scrollBy(0, Math.max(1, Math.ceil((edgeSize - (window.innerHeight - state.clientY)) / 16)));
+      }
+    }
+
+    function finishPlaylistDrag(event) {
+      const state = playlistDragState;
+      if (!state || event.pointerId !== state.pointerId) return;
+      clearPlaylistDrag(state);
+      if (state.dropIndex === null) return;
+      const sourceIndex = getPlaylists().findIndex(item => String(item.id) === state.playlistId);
+      movePlaylist(sourceIndex, state.dropIndex);
+    }
+
+    function cancelPlaylistDrag(event) {
+      const state = playlistDragState;
+      if (state && event.pointerId === state.pointerId) clearPlaylistDrag(state);
+    }
+
+    function clearPlaylistDrag(state) {
+      cancelAnimationFrame(state.scrollFrame);
+      state.row.classList.remove('is-dragging');
+      state.list.querySelectorAll('.is-drag-over').forEach(row => row.classList.remove('is-drag-over'));
+      playlistDragState = null;
     }
 
     function removeQuoteFromPlaylist(quoteId) {
