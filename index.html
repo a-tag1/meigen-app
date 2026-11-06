@@ -147,6 +147,7 @@
     .playlist-row { display: flex; align-items: center; gap: 12px; padding: 16px; background: #15181e; border: 1px solid var(--border-color); border-radius: 10px; transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, transform 0.18s ease; }
     .playlist-row.is-dragging { position: relative; z-index: 1; opacity: 0.94; transform: scale(1.025); box-shadow: 0 12px 30px rgba(0,0,0,0.42); }
     .playlist-row.is-drag-over { border-color: var(--accent-color); background: rgba(102,252,241,0.07); }
+    .playlist-row.is-virtual { border-style: dashed; }
     .playlist-row.is-reordered { animation: playlist-drop-confirm 0.42s ease-out; }
     @keyframes playlist-drop-confirm {
       from { box-shadow: 0 0 0 2px var(--accent-color); }
@@ -360,6 +361,7 @@
   <script>
     const STORAGE_KEY = 'my_quotes_data';
     const PLAYLIST_STORAGE_KEY = 'my_quotes_playlists';
+    const UNREGISTERED_PLAYLIST_ID = '__unregistered_playlist__';
     const FONT_SIZE_KEY = 'quote_font_size';
     const QUOTE_FONT_KEY = 'quote_font_family';
     const ORIENTATION_KEY = 'quote_orientation';
@@ -367,6 +369,7 @@
     const QUOTE_FONT_MAP = { sans: 'sans-serif', serif: 'serif', mono: 'monospace' };
     let editingId = null;
     let shuffleQueue = [];
+    let playlistAddQuoteId = null;
     let playlistDragState = null;
     let currentPlaylistId = null;
     let playlistPlayOrder = 'sequential';
@@ -483,6 +486,18 @@
 
     function savePlaylists(playlists) {
       localStorage.setItem(PLAYLIST_STORAGE_KEY, JSON.stringify(playlists));
+    }
+
+    function getUnregisteredQuotes() {
+      const registeredQuoteIds = new Set(getPlaylists().flatMap(playlist => playlist.quoteIds.map(String)));
+      return getQuotes().filter(quote => !registeredQuoteIds.has(String(quote.id)));
+    }
+
+    function getPlaylistById(playlistId) {
+      if (String(playlistId) === UNREGISTERED_PLAYLIST_ID) {
+        return { id: UNREGISTERED_PLAYLIST_ID, name: '未登録', quoteIds: getUnregisteredQuotes().map(quote => quote.id) };
+      }
+      return getPlaylists().find(item => String(item.id) === String(playlistId)) || null;
     }
 
     function makeId() {
@@ -831,10 +846,6 @@
       if (currentPlaylistId === null) {
         title.textContent = 'PLAYLISTS';
         content.innerHTML = '';
-        if (!playlists.length) {
-          content.innerHTML = '<p class="empty-state">プレイリストはまだありません。</p>';
-          return;
-        }
         const list = document.createElement('div');
         list.className = 'playlist-list';
         playlists.forEach((playlist, index) => {
@@ -852,12 +863,39 @@
           });
           list.appendChild(row);
         });
+        const unregisteredRow = document.createElement('div');
+        unregisteredRow.className = 'playlist-row is-virtual';
+        unregisteredRow.innerHTML = `<button class="playlist-open" onclick="openPlaylist('${UNREGISTERED_PLAYLIST_ID}')"><span class="playlist-name">未登録</span><span class="playlist-count">${getUnregisteredQuotes().length} 件</span></button>`;
+        list.appendChild(unregisteredRow);
         content.appendChild(list);
         return;
       }
 
-      const playlist = playlists.find(item => String(item.id) === String(currentPlaylistId));
+      const playlist = getPlaylistById(currentPlaylistId);
       if (!playlist) { currentPlaylistId = null; renderPlaylists(); return; }
+      if (String(currentPlaylistId) === UNREGISTERED_PLAYLIST_ID) {
+        title.textContent = playlist.name;
+        const quotes = getUnregisteredQuotes();
+        content.innerHTML = `<section class="playlist-detail"><div class="size-selector"><button class="size-btn ${playlistPlayOrder === 'sequential' ? 'active' : ''}" onclick="setPlaylistOrder('sequential')">順番</button><button class="size-btn ${playlistPlayOrder === 'random' ? 'active' : ''}" onclick="setPlaylistOrder('random')">ランダム</button></div><button class="primary-btn" onclick="startPlaylistPlayback()" ${quotes.length ? '' : 'disabled'}>再生</button>${quotes.length ? '' : '<p class="empty-state">未登録の名言はありません。</p>'}<div id="unregisteredQuoteItems" class="quote-list"></div></section>`;
+        const items = document.getElementById('unregisteredQuoteItems');
+        quotes.forEach(quote => {
+          const row = document.createElement('div');
+          row.className = 'list-item';
+          row.innerHTML = `<div style="flex:1; min-width:0;"><div class="list-item-text">${escapeHtml(quote.text)}</div>${quote.author ? `<div class="list-item-author">— ${escapeHtml(quote.author)}</div>` : ''}${quote.theme ? `<div class="list-item-meta"># ${escapeHtml(quote.theme)}</div>` : ''}</div>`;
+          const addButton = document.createElement('button');
+          addButton.className = 'edit-btn';
+          addButton.type = 'button';
+          addButton.textContent = '追加';
+          addButton.setAttribute('aria-label', `${quote.text}をプレイリストに追加`);
+          addButton.addEventListener('click', () => openPlaylistAddModalForQuote(quote.id));
+          const controls = document.createElement('div');
+          controls.className = 'playlist-controls';
+          controls.appendChild(addButton);
+          row.appendChild(controls);
+          items.appendChild(row);
+        });
+        return;
+      }
       title.textContent = playlist.name;
       const quotes = playlist.quoteIds.map(id => getQuotes().find(quote => String(quote.id) === String(id))).filter(Boolean);
       content.innerHTML = `<section class="playlist-detail"><div class="size-selector"><button class="size-btn ${playlistPlayOrder === 'sequential' ? 'active' : ''}" onclick="setPlaylistOrder('sequential')">順番</button><button class="size-btn ${playlistPlayOrder === 'random' ? 'active' : ''}" onclick="setPlaylistOrder('random')">ランダム</button></div><button class="primary-btn" onclick="startPlaylistPlayback()" ${quotes.length ? '' : 'disabled'}>再生</button><div class="inline-actions"><button class="secondary-btn" onclick="renderPlaylistLibrary()">名言を追加</button></div>${quotes.length ? '' : '<p class="empty-state">このプレイリストには名言がありません。</p>'}<div id="playlistQuoteItems" class="quote-list"></div><div id="playlistQuoteLibrary" class="quote-list"></div></section>`;
@@ -886,11 +924,14 @@
       const name = nameInput.value.trim();
       if (!name) { alert('プレイリスト名を入力してください'); return; }
       const playlists = getPlaylists();
-      const playlist = { id: makeId(), name, quoteIds: currentHomeQuoteId === null ? [] : [currentHomeQuoteId] };
+      const selectedQuoteId = playlistAddQuoteId;
+      const playlist = { id: makeId(), name, quoteIds: selectedQuoteId === null ? [] : [selectedQuoteId] };
       playlists.push(playlist);
       savePlaylists(playlists);
-      renderQuotePlaylists();
+      if (String(currentHomeQuoteId) === String(selectedQuoteId)) renderQuotePlaylists();
+      if (String(currentPlaylistId) === UNREGISTERED_PLAYLIST_ID) renderPlaylists();
       nameInput.value = '';
+      playlistAddQuoteId = null;
       closeModal('playlistAddModal');
     }
 
@@ -900,7 +941,7 @@
       choices.innerHTML = '';
       if (!playlists.length) choices.innerHTML = '<p class="empty-state">プレイリストはありません。下から作成できます。</p>';
       playlists.forEach(playlist => {
-        const isSelected = playlist.quoteIds.some(id => String(id) === String(currentHomeQuoteId));
+        const isSelected = playlist.quoteIds.some(id => String(id) === String(playlistAddQuoteId));
         const button = document.createElement('button');
         button.className = `secondary-btn playlist-choice-btn${isSelected ? ' is-selected' : ''}`;
         button.textContent = playlist.name;
@@ -912,6 +953,13 @@
 
     function openPlaylistAddModal() {
       if (currentHomeQuoteId === null) { alert('先に名言を表示してください'); return; }
+      playlistAddQuoteId = currentHomeQuoteId;
+      renderPlaylistAddChoices();
+      openModal('playlistAddModal');
+    }
+
+    function openPlaylistAddModalForQuote(quoteId) {
+      playlistAddQuoteId = quoteId;
       renderPlaylistAddChoices();
       openModal('playlistAddModal');
     }
@@ -919,13 +967,14 @@
     function toggleQuoteInPlaylist(playlistId) {
       const playlists = getPlaylists();
       const playlist = playlists.find(item => String(item.id) === String(playlistId));
-      if (!playlist || currentHomeQuoteId === null) return;
-      const quoteIndex = playlist.quoteIds.findIndex(id => String(id) === String(currentHomeQuoteId));
-      if (quoteIndex === -1) playlist.quoteIds.push(currentHomeQuoteId);
+      if (!playlist || playlistAddQuoteId === null) return;
+      const quoteIndex = playlist.quoteIds.findIndex(id => String(id) === String(playlistAddQuoteId));
+      if (quoteIndex === -1) playlist.quoteIds.push(playlistAddQuoteId);
       else playlist.quoteIds.splice(quoteIndex, 1);
       savePlaylists(playlists);
-      renderQuotePlaylists();
+      if (String(currentHomeQuoteId) === String(playlistAddQuoteId)) renderQuotePlaylists();
       renderPlaylistAddChoices();
+      if (String(currentPlaylistId) === UNREGISTERED_PLAYLIST_ID) renderPlaylists();
     }
 
     function addQuoteToPlaylist(playlistId, quoteId) {
@@ -950,7 +999,7 @@
     }
 
     function startPlaylistPlayback() {
-      const playlist = getPlaylists().find(item => String(item.id) === String(currentPlaylistId));
+      const playlist = getPlaylistById(currentPlaylistId);
       if (!playlist || !playlist.quoteIds.length) return;
       playlistPlayIndex = 0;
       playlistShuffleQueue = [];
@@ -975,7 +1024,7 @@
     }
 
     function renderPlaylistPlaybackQuote() {
-      const playlist = getPlaylists().find(item => String(item.id) === String(currentPlaylistId));
+      const playlist = getPlaylistById(currentPlaylistId);
       const quote = playlist?.quoteIds.map(id => getQuotes().find(item => String(item.id) === String(id))).filter(Boolean)[playlistPlayIndex];
       if (!quote) return;
       setQuoteText(quote.text);
@@ -1130,7 +1179,7 @@
     }
 
     function stepPlaylist(direction) {
-      const playlist = getPlaylists().find(item => String(item.id) === String(currentPlaylistId));
+      const playlist = getPlaylistById(currentPlaylistId);
       if (!playlist || !playlist.quoteIds.length) return;
       if (playlistPlayOrder === 'sequential') {
         playlistPlayIndex = Math.max(0, Math.min(playlistPlayIndex + direction, playlist.quoteIds.length - 1));
