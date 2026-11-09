@@ -506,9 +506,10 @@
 
     function displayRandomQuote() {
       const quotes = getQuotes();
-      document.getElementById('quoteCard').scrollTop = 0;
-      window.scrollTo({ top: 0, behavior: 'auto' });
+      const previousQuoteId = currentHomeQuoteId;
       if (quotes.length === 0) {
+        document.getElementById('quoteCard').scrollTop = 0;
+        window.scrollTo({ top: 0, behavior: 'auto' });
         setQuoteText("言葉が登録されていません。「⚙︎」メニューから追加してください。");
         document.getElementById('quoteAuthor').innerText = "";
         document.getElementById('quoteTheme').innerText = "";
@@ -531,10 +532,15 @@
       }
 
       const q = quotes[shuffleQueue.shift()];
+      const isSameQuote = previousQuoteId === q.id;
       
       const card = document.getElementById('quoteCard');
       card.style.opacity = 0;
       setTimeout(() => {
+        if (!isSameQuote) {
+          document.getElementById('quoteCard').scrollTop = 0;
+          window.scrollTo({ top: 0, behavior: 'auto' });
+        }
         setQuoteText(q.text);
         document.getElementById('quoteAuthor').innerText = q.author ? `— ${q.author}` : '';
         document.getElementById('quoteTheme').innerText = q.theme ? `# ${q.theme}` : '';
