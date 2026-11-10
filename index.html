@@ -381,6 +381,7 @@
     let playlistPlaybackActive = false;
     let editReturnContext = 'list';
     let fullscreenControlTimer = null;
+    let lastQuoteScrollLeft = 0;
 
     function setFontSize(size) {
       const parsedSize = Number(size);
@@ -461,6 +462,13 @@
       setOrientation(localStorage.getItem(ORIENTATION_KEY) || 'horizontal');
     }
 
+    function initScrollPositionTracking() {
+      const quoteText = document.getElementById('quoteText');
+      quoteText.addEventListener('scroll', () => {
+        lastQuoteScrollLeft = quoteText.scrollLeft;
+      });
+    }
+
     function shuffleArray(arr) {
       for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -534,21 +542,32 @@
       const q = quotes[shuffleQueue.shift()];
       const isSameQuote = previousQuoteId === q.id;
       
+      const quoteText = document.getElementById('quoteText');
       const card = document.getElementById('quoteCard');
+      
       card.style.opacity = 0;
       setTimeout(() => {
-        if (!isSameQuote) {
-          document.getElementById('quoteCard').scrollTop = 0;
-          window.scrollTo({ top: 0, behavior: 'auto' });
-        }
         setQuoteText(q.text);
         document.getElementById('quoteAuthor').innerText = q.author ? `— ${q.author}` : '';
         document.getElementById('quoteTheme').innerText = q.theme ? `# ${q.theme}` : '';
         currentHomeQuoteId = q.id;
         renderQuotePlaylists();
         updateCurrentQuoteActions();
+        
+        if (!isSameQuote) {
+          document.getElementById('quoteCard').scrollTop = 0;
+          window.scrollTo({ top: 0, behavior: 'auto' });
+          quoteText.scrollLeft = 0;
+          lastQuoteScrollLeft = 0;
+        } else {
+          quoteText.scrollLeft = lastQuoteScrollLeft;
+        }
+        
         card.style.opacity = 1;
       }, 150);
+      
+      // スクロール位置を保存
+      lastQuoteScrollLeft = quoteText.scrollLeft;
     }
 
     document.getElementById('cardArea').addEventListener('click', () => {
@@ -1232,6 +1251,7 @@
     applyFontSize();
     applyQuoteFont();
     applyOrientation();
+    initScrollPositionTracking();
   </script>
 </body>
 </html>
