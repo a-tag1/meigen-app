@@ -69,13 +69,15 @@
     .playlist-membership { width: 100%; margin-bottom: 12px; color: var(--text-sub); font-size: 0.8rem; letter-spacing: 0.06em; text-align: center; }
     .playlist-membership[hidden] { display: none; }
     .quote-author { flex-shrink: 0; font-size: 0.85rem; color: var(--accent-color); text-align: right; letter-spacing: 0.1em; text-transform: uppercase; }
-    .app-container.is-vertical { padding-top: 8px; padding-bottom: 8px; }
+    .app-container.is-vertical { height: 100vh; min-height: 0; padding-top: 8px; padding-bottom: 8px; }
     .app-container.is-vertical header { padding: 0; }
     .app-container.is-vertical .card-area { padding: 0; }
     .app-container.is-vertical .home-actions { padding: 0; }
     .app-container.is-vertical .tap-hint { margin-top: 0; }
     .quote-card.is-vertical { height: min(85vh, 720px, calc(100vh - 160px)); max-height: min(85vh, 720px, calc(100vh - 160px)); padding-top: 28px; padding-bottom: 28px; flex-direction: row-reverse; align-items: stretch; }
-    .quote-card.is-vertical .quote-text { flex: 0 1 auto; width: fit-content; max-width: 100%; height: 100%; margin-left: auto; margin-right: auto; writing-mode: vertical-rl; text-orientation: mixed; white-space: pre-wrap; overflow-x: auto; overflow-y: hidden; touch-action: pan-x; overscroll-behavior-x: contain; }
+    .quote-card.is-vertical:active { transform: none; }
+    .quote-card.is-vertical .quote-text { flex: 1 1 0; min-width: 0; height: 100%; direction: rtl; overflow-x: auto; overflow-y: hidden; touch-action: pan-x; overscroll-behavior-x: contain; }
+    .quote-card.is-vertical .quote-text-content { width: max-content; height: 100%; margin: 0 auto; direction: ltr; writing-mode: vertical-rl; text-orientation: mixed; }
     .quote-card.is-vertical .quote-author { writing-mode: vertical-rl; align-self: flex-end; text-align: left; }
     .tap-hint { font-size: 0.7rem; color: var(--text-sub); margin-top: 24px; opacity: 0.4; letter-spacing: 0.15em; text-transform: uppercase; }
 
@@ -178,6 +180,7 @@
     }
     @supports (height: 100dvh) {
       body, .app-container, .screen { min-height: 100dvh; }
+      .app-container.is-vertical { height: 100dvh; min-height: 0; }
       .quote-card { max-height: max(200px, calc(100dvh - 180px)); }
       .quote-card.is-vertical { height: min(85dvh, 720px, calc(100dvh - 160px)); max-height: min(85dvh, 720px, calc(100dvh - 160px)); }
       .app-container:fullscreen, .app-container.is-fullscreen { height: 100dvh; min-height: 100dvh; }
@@ -200,7 +203,7 @@
     <main class="card-area" id="cardArea">
       <div class="playlist-membership" id="quotePlaylists" hidden></div>
       <div class="quote-card" id="quoteCard">
-        <div class="quote-text" id="quoteText">画面をタップして、言葉を呼び出しましょう。</div>
+        <div class="quote-text" id="quoteText"><div class="quote-text-content" id="quoteTextContent">画面をタップして、言葉を呼び出しましょう。</div></div>
         <div class="quote-author" id="quoteAuthor"></div>
         <div class="quote-theme" id="quoteTheme"></div>
       </div>
@@ -426,7 +429,7 @@
     }
 
     function setQuoteText(text) {
-      const quoteText = document.getElementById('quoteText');
+      const quoteText = document.getElementById('quoteTextContent');
       const value = String(text);
       const numberPattern = /[0-9０-９]+/g;
       const fragment = document.createDocumentFragment();
@@ -590,7 +593,10 @@
     }
 
     document.getElementById('cardArea').addEventListener('click', event => {
-      if (suppressQuoteTouchClick && document.getElementById('quoteText').contains(event.target)) {
+      const quoteText = document.getElementById('quoteText');
+      const isScrolledVerticalText = document.getElementById('quoteCard').classList.contains('is-vertical') &&
+        quoteText.scrollWidth > quoteText.clientWidth && Math.abs(quoteText.scrollLeft) > 1;
+      if (quoteText.contains(event.target) && (suppressQuoteTouchClick || isScrolledVerticalText)) {
         suppressQuoteTouchClick = false;
         return;
       }
