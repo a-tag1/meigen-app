@@ -75,7 +75,7 @@
     .app-container.is-vertical .home-actions { padding: 0; }
     .app-container.is-vertical .tap-hint { margin-top: 0; }
     .quote-card.is-vertical { height: min(85vh, 720px, calc(100vh - 160px)); max-height: min(85vh, 720px, calc(100vh - 160px)); padding-top: 28px; padding-bottom: 28px; flex-direction: row-reverse; align-items: stretch; }
-    .quote-card.is-vertical .quote-text { flex: 0 1 auto; width: fit-content; max-width: 100%; height: 100%; margin-left: auto; margin-right: auto; writing-mode: vertical-rl; text-orientation: mixed; white-space: pre-wrap; overflow-x: auto; overflow-y: hidden; }
+    .quote-card.is-vertical .quote-text { flex: 0 1 auto; width: fit-content; max-width: 100%; height: 100%; margin-left: auto; margin-right: auto; writing-mode: vertical-rl; text-orientation: mixed; white-space: pre-wrap; overflow-x: auto; overflow-y: hidden; touch-action: pan-x; overscroll-behavior-x: contain; }
     .quote-card.is-vertical .quote-author { writing-mode: vertical-rl; align-self: flex-end; text-align: left; }
     .tap-hint { font-size: 0.7rem; color: var(--text-sub); margin-top: 24px; opacity: 0.4; letter-spacing: 0.15em; text-transform: uppercase; }
 
@@ -175,6 +175,12 @@
     .list-item-meta { margin-top: 5px; color: var(--text-sub); font-size: 0.72rem; }
     @media (min-width: 600px) {
       .screen { max-width: 560px; margin: 0 auto; }
+    }
+    @supports (height: 100dvh) {
+      body, .app-container, .screen { min-height: 100dvh; }
+      .quote-card { max-height: max(200px, calc(100dvh - 180px)); }
+      .quote-card.is-vertical { height: min(85dvh, 720px, calc(100dvh - 160px)); max-height: min(85dvh, 720px, calc(100dvh - 160px)); }
+      .app-container:fullscreen, .app-container.is-fullscreen { height: 100dvh; min-height: 100dvh; }
     }
   </style>
 </head>
@@ -381,8 +387,9 @@
     let playlistPlaybackActive = false;
     let editReturnContext = 'list';
     let fullscreenControlTimer = null;
-    let lastQuoteScrollLeft = 0;
-    let lastQuoteScrollTop = 0;
+    let lastQuoteScrollTime = -Infinity;
+    let suppressQuoteTouchClick = false;
+    let quoteTouchStart = null;
 
     function setFontSize(size) {
       const parsedSize = Number(size);
@@ -466,16 +473,23 @@
     function initScrollPositionTracking() {
       const quoteText = document.getElementById('quoteText');
       quoteText.addEventListener('scroll', () => {
-        lastQuoteScrollLeft = quoteText.scrollLeft;
-        lastQuoteScrollTop = quoteText.scrollTop;
+        lastQuoteScrollTime = performance.now();
       });
+      quoteText.addEventListener('touchstart', event => {
+        const touch = event.touches[0];
+        quoteTouchStart = { x: touch.clientX, y: touch.clientY };
+        suppressQuoteTouchClick = quoteText.scrollWidth > quoteText.clientWidth && performance.now() - lastQuoteScrollTime < 200;
+      }, { passive: true });
+      quoteText.addEventListener('touchmove', event => {
+        if (!quoteTouchStart) return;
+        const touch = event.touches[0];
+        if (Math.abs(touch.clientX - quoteTouchStart.x) > 8 || Math.abs(touch.clientY - quoteTouchStart.y) > 8) suppressQuoteTouchClick = true;
+      }, { passive: true });
     }
 
     function resetQuoteScrollPosition(quoteText) {
       quoteText.scrollLeft = 0;
       quoteText.scrollTop = 0;
-      lastQuoteScrollLeft = 0;
-      lastQuoteScrollTop = 0;
     }
 
     function shuffleArray(arr) {
@@ -551,6 +565,9 @@
 
       const q = quotes[shuffleQueue.shift()];
       const isSameQuote = previousQuoteId === q.id;
+        if (isSameQuote && document.getElementById('quoteText').textContent === q.text &&
+          document.getElementById('quoteAuthor').textContent === (q.author ? `— ${q.author}` : '') &&
+          document.getElementById('quoteTheme').textContent === (q.theme ? `# ${q.theme}` : '')) return;
       
       const quoteText = document.getElementById('quoteText');
       const card = document.getElementById('quoteCard');
@@ -564,22 +581,19 @@
         renderQuotePlaylists();
         updateCurrentQuoteActions();
         
-        if (!isSameQuote) {
-          resetQuoteScrollPosition(quoteText);
-          window.scrollTo({ top: 0, behavior: 'auto' });
-        } else {
-          quoteText.scrollLeft = lastQuoteScrollLeft;
-          quoteText.scrollTop = lastQuoteScrollTop;
-        }
+        resetQuoteScrollPosition(quoteText);
+        window.scrollTo({ top: 0, behavior: 'auto' });
         
         card.style.opacity = 1;
       }, 150);
       
-      // スクロール位置を保存
-      lastQuoteScrollLeft = quoteText.scrollLeft;
     }
 
-    document.getElementById('cardArea').addEventListener('click', () => {
+    document.getElementById('cardArea').addEventListener('click', event => {
+      if (suppressQuoteTouchClick && document.getElementById('quoteText').contains(event.target)) {
+        suppressQuoteTouchClick = false;
+        return;
+      }
       showFullscreenExitButton();
       if (playlistPlaybackActive) stepPlaylist(1);
       else displayRandomQuote();
@@ -1215,6 +1229,7 @@
     function stepPlaylist(direction) {
       const playlist = getPlaylistById(currentPlaylistId);
       if (!playlist || !playlist.quoteIds.length) return;
+      const previousIndex = playlistPlayIndex;
       if (playlistPlayOrder === 'sequential') {
         playlistPlayIndex = Math.max(0, Math.min(playlistPlayIndex + direction, playlist.quoteIds.length - 1));
       } else {
@@ -1235,8 +1250,9 @@
           playlistHistoryCursor += 1;
         }
       }
-      if (playlistPlaybackActive) renderPlaylistPlaybackQuote();
-      else renderPlaylists();
+      if (playlistPlaybackActive) {
+        if (playlistPlayIndex !== previousIndex) renderPlaylistPlaybackQuote();
+      } else renderPlaylists();
     }
 
     function renderPlaylistLibrary() {
